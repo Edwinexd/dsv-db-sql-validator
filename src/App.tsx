@@ -32,7 +32,7 @@ function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<string>('SELECT * FROM student');
-  const [correctResult, setCorrectResult] = useState<boolean>(true);
+  const [correctResult, setCorrectResult] = useState<boolean>(false);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
 
   const initDb = useCallback(async () => {
@@ -46,13 +46,6 @@ function App() {
     const db = new SQL.Database(new Uint8Array(data));
     setDatabase(db);
   }, []);
-
-  const Component = () => {
-    
-    const [code, setCode] = useState<string>(
-      `function add(a, b) {\n  return a + b;\n}`
-    );
-  };
 
   useEffect(() => {
     initDb();
@@ -91,6 +84,7 @@ function App() {
       }
       const { columns, values } = res[0];
       setResult({ columns, data: values });
+      setCorrectResult(true);
     } catch (e) {
       // @ts-ignore
       setError(e.message);
