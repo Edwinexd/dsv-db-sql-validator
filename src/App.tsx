@@ -34,6 +34,7 @@ import { format } from 'sql-formatter';
 import React from 'react';
 
 import questions from './questions.json'
+import { isCorrectResult } from './utils';
 
 
 // Representing a view
@@ -47,7 +48,6 @@ function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || "SELECT * FROM student;");
-  const [correctResult, setCorrectResult] = useState<boolean>(false);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
   const [views, setViews] = useState<View[]>([]);
   
@@ -80,6 +80,18 @@ function App() {
     if (!database) {
       return;
     }
+    localStorage.setItem('questionId-' + question.id, query);
+    // ensure that questionid is in localstorage writtenQuestions
+    const writtenQuestions = localStorage.getItem('writtenQuestions');
+    if (!writtenQuestions) {
+      localStorage.setItem('writtenQuestions', JSON.stringify([question.id]));
+    } else {
+      const parsed = JSON.parse(writtenQuestions);
+      if (!parsed.includes(question.id)) {
+        parsed.push(question.id);
+        localStorage.setItem('writtenQuestions', JSON.stringify(parsed));
+      }
+    }
     try {
       database.prepare(query);
       setError(null);
@@ -87,7 +99,7 @@ function App() {
       // @ts-ignore
       setError(e.message);
     }
-  }, [database, query]);
+  }, [database, query, question.id]);
 
 
   const refreshViews = useCallback((upsert: boolean) => {
@@ -136,7 +148,6 @@ function App() {
       } else {
         setResult({columns: [], data: []});
       }
-      setCorrectResult(true);
       refreshViews(true);
     } catch (e) {
       // @ts-ignore
@@ -157,17 +168,16 @@ function App() {
   }, [database, refreshViews]);
 
   // Save query based on question
-  const saveAndLoadQuery = useCallback((oldQuestion: Question, newQuestion: Question) => {
-    localStorage.setItem('questionId-' + oldQuestion.id, query);
+  const loadQuery = useCallback((oldQuestion: Question, newQuestion: Question) => {
     setQuery(localStorage.getItem('questionId-' + newQuestion.id) || "SELECT * FROM student;");
-  }, [query]);
+  }, [setQuery]);
 
   return (
     <div className="App">
       <header className="App-header">
         <h1 className='text-6xl font-semibold my-3'>SQL TUTOR</h1>
-        <img src={logo} className="App-logo" alt="logo" />
-        <QuestionSelector onSelect={(selectedQuestion) => {saveAndLoadQuery(question, selectedQuestion); setQuestion(selectedQuestion)}}></QuestionSelector>
+        <img src={logo} className="DB-Layout" alt="logo" />
+        <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); setResult(null); setQuestion(selectedQuestion)}}></QuestionSelector>
         <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
         <Editor
           value={query}
@@ -198,8 +208,8 @@ function App() {
 
         {result && <>
           {/* if correct result else display wrong result */}
-          {correctResult ? <><p className="text-green-500">Correct result!</p>
-            <p className="text-sm italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before submitting.</p>
+          {isCorrectResult({columns: question.result.columns, data: question.result.values}, result) ? <><p className="text-green-500">Correct result!</p>
+            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
           </> : <p className="text-red-500">Wrong result!</p>}
           {/* Two different result tables next to each other, actual and expected */}
           <div className="flex max-w-full py-4 w-full justify-center">
