@@ -15,13 +15,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import './App.css';
 import logo from './logo.svg';
 import ResultTable from './ResultTable';
 import Editor from 'react-simple-code-editor';
 
-import Prism from 'prismjs';
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
 import initSqlJs from "sql.js";
@@ -49,7 +48,7 @@ function App() {
 
   const Component = () => {
     
-    const [code, setCode] = React.useState(
+    const [code, setCode] = useState<string>(
       `function add(a, b) {\n  return a + b;\n}`
     );
     return (
