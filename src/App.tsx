@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 import { useCallback, useEffect, useState } from 'react';
 import './App.css';
-import logo from './logo.svg';
+import logo from './db_scheme.png';
 import ResultTable from './ResultTable';
 import Editor from 'react-simple-code-editor';
 
@@ -156,8 +156,9 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1 className='text-6xl'>SQL TUTOR</h1>
+        <h1 className='text-6xl font-semibold'>SQL TUTOR</h1>
         <img src={logo} className="App-logo" alt="logo" />
+        <p className='break-words max-w-4xl my-4 font-semibold text-left'>För varje kurstillfälle ta fram antal studenter från Kista! Visa kurskod, startdatum och antal studenter! Även kurstillfällen utan studenter från Kista skall ingå i resultatet (med 0 i antalkolumnen).</p>
         <QuestionSelector onSelect={(id:number) => {console.log(id)}}></QuestionSelector>
         <Editor
        value={query}
@@ -167,11 +168,9 @@ function App() {
         className="font-mono text-3xl  min-w-96 max-w-4xl bg-slate-800 border-2"/>
        
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
-
-        <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 px-4 my-3.5 rounded' type='submit'>Run query</button>
-        <button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 my-4 rounded' type='submit'>Reset DB</button>
-        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Export Data</button>
-        <button onClick={() => {
+        <div className='flex text-white font-semibold '>
+          <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 py-2 px-4 my-3.5 rounded mr-3' type='submit'>Run Query</button>
+          <button onClick={() => {
           setQuery(format(query, {
             language: 'sqlite',
             tabWidth: 4,
@@ -179,9 +178,13 @@ function App() {
             keywordCase: 'upper',
             dataTypeCase: 'upper',
             functionCase: 'upper',
-        }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 px-4 my-3.5 rounded' type='submit'>Format Code</button>
+        }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 py-2 px-4 my-3.5 rounded mr-3' type='submit'>Format Code</button>
+        </div>
         
         <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} />
+          <div className='flex'><button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 my-4 rounded mr-3' type='submit'>Reset DB</button>
+          <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded my-3.5' type='submit'>Export Data</button></div>
+        
 
         {result && <>
           {/* if correct result else display wrong result */}

@@ -13,7 +13,7 @@ interface ViewsTableProps {
 const ViewsTable: React.FC<ViewsTableProps> = ({ views, onRemoveView }) => {
     return (
         <>
-            <h2>Views</h2>
+            <h2 className='text-3xl font-semibold'>Views</h2>
             <table className="table-auto text-sm bg-slate-50 dark:bg-slate-700">
                 <thead>
                     <tr>
