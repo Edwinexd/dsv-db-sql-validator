@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import { useCallback, useEffect, useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
+import ResultTable from './ResultTable';
 
 import initSqlJs from "sql.js";
 
@@ -25,6 +26,7 @@ function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<string>('SELECT * FROM student');
+  const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
 
   const initDb = useCallback(async () => {
     const sqlPromise = initSqlJs(
@@ -63,6 +65,23 @@ function App() {
     }
   }, [database, query]);
 
+  const runQuery = useCallback(() => {
+    if (!database) {
+      return;
+    }
+    try {
+      const res = database.exec(query);
+      if (res.length === 0) {
+        return;
+      }
+      const { columns, values } = res[0];
+      setResult({ columns, data: values });
+    } catch (e) {
+      // @ts-ignore
+      setError(e.message);
+    }
+  }, [database, query]);
+
   return (
     <div className="App">
       <header className="App-header">
@@ -80,6 +99,9 @@ function App() {
         </a>
         {error && <p>{error}</p>}
         <input value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button onClick={initDb}>Reset DB</button>
+        <button onClick={runQuery}>Run query</button>
+        {result && <ResultTable columns={result.columns} data={result.data} />}
       </header>
     </div>
   );
