@@ -32,6 +32,7 @@ function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<string>('SELECT * FROM student');
+  const [correctResult, setCorrectResult] = useState<boolean>(true);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
 
   const initDb = useCallback(async () => {
@@ -97,6 +98,7 @@ function App() {
     try {
       const res = database.exec(query);
       if (res.length === 0) {
+        setResult({ columns: [], data: [] });
         return;
       }
       const { columns, values } = res[0];
@@ -125,9 +127,26 @@ function App() {
         </a>
         {error && <p>{error}</p>}
         <input value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button onClick={initDb}>Reset DB</button>
-        <button onClick={runQuery}>Run query</button>
-        {result && <ResultTable columns={result.columns} data={result.data} />}
+        <button onClick={initDb} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Reset DB</button>
+        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Run query</button>
+        {result && <>
+          {/* if correct result else display wrong result */}
+          {correctResult ? <><p className="text-green-500">Correct result!</p>
+            <p className="text-sm italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before submitting.</p>
+          </> : <p className="text-red-500">Wrong result!</p>}
+          {/* Two different result tables next to each other, actual and expected */}
+          <div className="flex max-w-full">
+            <div className="flex-1 px-2">
+              <h2>Expected</h2>
+              <ResultTable columns={result.columns} data={result.data} />
+            </div>
+            <div className="flex-1 px-2">
+              {/* TODO */}
+              <h2>Actual</h2>
+              <ResultTable columns={result.columns} data={result.data} />
+            </div>
+          </div>
+        </>}
       </header>
     </div>
   );
