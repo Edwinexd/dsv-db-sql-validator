@@ -36,6 +36,7 @@ function App() {
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
 
   const initDb = useCallback(async () => {
+    setResult(null);
     const sqlPromise = initSqlJs(
       {
         locateFile: (file) => `https://sql.js.org/dist/${file}`,
@@ -115,8 +116,8 @@ function App() {
         </a>
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
         <input value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button onClick={initDb} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Reset DB</button>
-        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Run query</button>
+        <button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded' type='submit'>Reset DB</button>
+        <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 px-4 rounded' type='submit'>Run query</button>
         {result && <>
           {/* if correct result else display wrong result */}
           {correctResult ? <><p className="text-green-500">Correct result!</p>

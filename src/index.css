@@ -15,6 +15,7 @@ code {
     monospace;
 }
 
+/* Token operator has a fixed background for some reason */
 .token.operator {
   background: none !important;
 }
