@@ -58,10 +58,6 @@ function App() {
     );
   };
 
-  
-
-
-//import { colourOptions } from '../data';
 
   useEffect(() => {
     initDb();
