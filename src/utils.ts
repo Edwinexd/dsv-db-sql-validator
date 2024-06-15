@@ -10,28 +10,28 @@ const cyrb53 = (str: string, seed = 0) => {
     h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
     h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
     h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  
-    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+    
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0) // % 2**16;
 };
 
 class HashedRow {
     private values: (number | string | Uint8Array | null)[] = [];
-    private hash: number;
+    private hash: bigint;
 
     constructor(data: (number | string | Uint8Array | null)[]) {
         this.values = data;
 
-        this.hash = 17;
+        this.hash = BigInt(17);
         for (let i = 0; i < data.length; i++) {
             if (typeof data[i] === 'string') {
-                this.hash *= cyrb53(data[i] as string);
+                this.hash += BigInt(cyrb53(data[i] as string));
             } else if (typeof data[i] === 'number') {
-                this.hash *=  data[i] as number;
+                this.hash +=  BigInt(data[i] as number);
             } else if (data[i] === null) {
-                this.hash *= 17;
+                this.hash += BigInt(17);
             } else {
                 for (let j = 0; j < (data[i] as Uint8Array).length; j++) {
-                    this.hash *= (data[i] as Uint8Array)[j];
+                    this.hash += BigInt((data[i] as Uint8Array)[j]);
                 }
             }
         }
@@ -126,7 +126,7 @@ class RowHashSet {
         if (hash < 0) {
             hash = -hash;
         }
-        return this.buckets[hash % this.buckets.length];
+        return this.buckets[Number(hash % BigInt(this.buckets.length))];
     }
 
     isEmpty() {

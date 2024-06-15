@@ -72,14 +72,6 @@ function App() {
     if (!database) {
       return;
     }
-    const res = database.exec('SELECT * FROM student');
-    console.log(res);
-  }, [database]);
-
-  useEffect(() => {
-    if (!database) {
-      return;
-    }
     localStorage.setItem('questionId-' + question.id, query);
     // ensure that questionid is in localstorage writtenQuestions
     const writtenQuestions = localStorage.getItem('writtenQuestions');
