@@ -165,20 +165,20 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1 className='text-6xl font-semibold'>SQL TUTOR</h1>
+        <h1 className='text-6xl font-semibold my-3'>SQL TUTOR</h1>
         <img src={logo} className="App-logo" alt="logo" />
-        <p className='break-words max-w-4xl my-4 font-semibold text-left'>{question.description}</p>
         <QuestionSelector onSelect={(selectedQuestion) => {saveAndLoadQuery(question, selectedQuestion); setQuestion(selectedQuestion)}}></QuestionSelector>
+        <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
         <Editor
           value={query}
           onValueChange={code => setQuery(code)}
           highlight={code => highlight(code, languages.sql)}
           padding={10}
-          className="font-mono text-3xl min-w-96 max-w-4xl bg-slate-800 border-2"
+          className="font-mono text-3xl w-screen max-w-4xl bg-slate-800 border-2 min-h-40"
         />
-       
+        
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
-        <div className='flex text-white font-semibold '>
+        <div className='flex text-white font-semibold text-base '>
           <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 py-2 px-4 my-3.5 rounded mr-3' type='submit'>Run Query</button>
           <button onClick={() => {
           setQuery(format(query, {
@@ -192,8 +192,8 @@ function App() {
         </div>
         
         <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} />
-          <div className='flex'><button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 my-4 rounded mr-3' type='submit'>Reset DB</button>
-          <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded my-3.5' type='submit'>Export Data</button></div>
+          <div className='flex text-base'><button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 my-4 rounded mr-3 w-13' type='submit'>Reset DB</button>
+          <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded my-3.5 w-13' type='submit'>Export Data</button></div>
         
 
         {result && <>
