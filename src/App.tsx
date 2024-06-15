@@ -21,7 +21,7 @@ import logo from './db_scheme.png';
 import ResultTable from './ResultTable';
 import Editor from 'react-simple-code-editor';
 
-import QuestionSelector from './QuestionSelector';
+import QuestionSelector, { Question } from './QuestionSelector';
 
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
@@ -31,6 +31,10 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css';
 import ViewsTable from './ViewsTable';
 import { format } from 'sql-formatter';
+import React from 'react';
+
+import questions from './questions.json'
+
 
 // Representing a view
 interface View {
@@ -39,13 +43,14 @@ interface View {
 }
 
 function App() {
+  const [question, setQuestion] = useState<Question>(questions[0].questions[0]);
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState<string>('SELECT * FROM student;');
+  const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || "SELECT * FROM student;");
   const [correctResult, setCorrectResult] = useState<boolean>(false);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
   const [views, setViews] = useState<View[]>([]);
-
+  
   const initDb = useCallback(async () => {
     setResult(null);
     const sqlPromise = initSqlJs(
@@ -114,7 +119,7 @@ function App() {
         database.exec(view.query);
       });
       if (missingViews.length > 0) {
-        refreshViews(true); // Refresh views again to update the state after recreating missing views
+        refreshViews(false); // Refresh views again to update the state after recreating missing views
       }
     }
   }, [database]);
@@ -151,21 +156,26 @@ function App() {
     refreshViews(false);
   }, [database, refreshViews]);
 
-
+  // Save query based on question
+  const saveAndLoadQuery = useCallback((oldQuestion: Question, newQuestion: Question) => {
+    localStorage.setItem('questionId-' + oldQuestion.id, query);
+    setQuery(localStorage.getItem('questionId-' + newQuestion.id) || "SELECT * FROM student;");
+  }, [query]);
 
   return (
     <div className="App">
       <header className="App-header">
         <h1 className='text-6xl font-semibold'>SQL TUTOR</h1>
         <img src={logo} className="App-logo" alt="logo" />
-        <p className='break-words max-w-4xl my-4 font-semibold text-left'>För varje kurstillfälle ta fram antal studenter från Kista! Visa kurskod, startdatum och antal studenter! Även kurstillfällen utan studenter från Kista skall ingå i resultatet (med 0 i antalkolumnen).</p>
-        <QuestionSelector onSelect={(id:number) => {console.log(id)}}></QuestionSelector>
+        <p className='break-words max-w-4xl my-4 font-semibold text-left'>{question.description}</p>
+        <QuestionSelector onSelect={(selectedQuestion) => {saveAndLoadQuery(question, selectedQuestion); setQuestion(selectedQuestion)}}></QuestionSelector>
         <Editor
-       value={query}
-       onValueChange={code => setQuery(code)}
-       highlight={code => highlight(code, languages.sql)}
-       padding={10}
-        className="font-mono text-3xl  min-w-96 max-w-4xl bg-slate-800 border-2"/>
+          value={query}
+          onValueChange={code => setQuery(code)}
+          highlight={code => highlight(code, languages.sql)}
+          padding={10}
+          className="font-mono text-3xl min-w-96 max-w-4xl bg-slate-800 border-2"
+        />
        
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
         <div className='flex text-white font-semibold '>
@@ -192,18 +202,17 @@ function App() {
             <p className="text-sm italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before submitting.</p>
           </> : <p className="text-red-500">Wrong result!</p>}
           {/* Two different result tables next to each other, actual and expected */}
-          <div className="flex max-w-full py-4">
-            <div className="flex-1 px-2 overflow-x-auto">
-              <h2 className="text-3xl py-2">Expected</h2>
-              <div className="overflow-x-auto">
+          <div className="flex max-w-full py-4 w-full justify-center">
+            <div className="flex-initial px-2 overflow-x-auto">
+              <h2 className="text-3xl py-2">Actual</h2>
+              <div className="overflow-x-auto justify-center grid">
                 <ResultTable columns={result.columns} data={result.data} />
               </div>
             </div>
-            <div className="flex-1 px-2 overflow-x-auto">
-              {/* TODO */}
-              <h2 className="text-3xl py-2">Actual</h2>
-              <div className="overflow-x-auto">
-                <ResultTable columns={result.columns} data={result.data} />
+            <div className="flex-initial px-2 overflow-x-auto">
+              <h2 className="text-3xl py-2">Expected</h2>
+              <div className="overflow-x-auto justify-center grid">
+                <ResultTable columns={question.result.columns} data={question.result.values} />
               </div>
             </div>
           </div>
