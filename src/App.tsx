@@ -21,6 +21,10 @@ import logo from './logo.svg';
 import ResultTable from './ResultTable';
 import Editor from 'react-simple-code-editor';
 
+import QuestionSelector from './QuestionSelector';
+import Select from 'react-select';
+
+
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
 import initSqlJs from "sql.js";
@@ -53,6 +57,21 @@ function App() {
       `function add(a, b) {\n  return a + b;\n}`
     );
   };
+
+  
+
+
+//import { colourOptions } from '../data';
+
+const options = [
+  { value: 'chocolate', label: 'Chocolate' },
+  { value: 'strawberry', label: 'Strawberry' },
+  { value: 'vanilla', label: 'Vanilla' }
+]
+
+const MyComponent = () => (
+  <Select options={options} />
+)
 
   useEffect(() => {
     initDb();
@@ -100,29 +119,24 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
+        <h1 className='text-6xl'>SQL TUTOR</h1>
         <img src={logo} className="App-logo" alt="logo" />
+        <QuestionSelector onSelect={(id:number) => {console.log(id)}}></QuestionSelector>
         <Editor
        value={query}
        onValueChange={code => setQuery(code)}
        highlight={code => highlight(code, languages.sql)}
        padding={10}
-       className="font-mono text-3xl  min-w-96 max-w-4xl bg-slate-800 border-2 "/>
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+        className="font-mono text-3xl  min-w-96 max-w-4xl bg-slate-800 border-2"/>
+       
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
-        <input value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button onClick={initDb} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Reset DB</button>
-        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Run query</button>
+        
+        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Run Query</button>
+        <button onClick={initDb} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 my-4 px-4 rounded' type='submit' >Reset DB</button>
+
+        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Export Data</button>
+        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Format Code</button>
+        
         {result && <>
           {/* if correct result else display wrong result */}
           {correctResult ? <><p className="text-green-500">Correct result!</p>
