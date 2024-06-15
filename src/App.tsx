@@ -22,8 +22,6 @@ import ResultTable from './ResultTable';
 import Editor from 'react-simple-code-editor';
 
 import QuestionSelector from './QuestionSelector';
-import Select from 'react-select';
-
 
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
