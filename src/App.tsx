@@ -52,18 +52,6 @@ function App() {
     const [code, setCode] = useState<string>(
       `function add(a, b) {\n  return a + b;\n}`
     );
-    return (
-      <Editor
-        value={code}
-        onValueChange={code => setCode(code)}
-        highlight={code => highlight(code, languages.sql)}
-        padding={10}
-        style={{
-          fontFamily: '"Fira code", "Fira Mono", monospace',
-          fontSize: 12,
-        }}
-      />
-    );
   };
 
   useEffect(() => {
@@ -113,10 +101,16 @@ function App() {
     <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
-        <Component></Component>
+        <Editor
+       value={query}
+       onValueChange={code => setQuery(code)}
+       highlight={code => highlight(code, languages.sql)}
+       padding={10}
+       className="font-mono text-3xl  min-w-96 max-w-4xl bg-slate-800 border-2 "/>
         <p>
           Edit <code>src/App.tsx</code> and save to reload.
         </p>
+
         <a
           className="App-link"
           href="https://reactjs.org"
@@ -125,7 +119,7 @@ function App() {
         >
           Learn React
         </a>
-        {error && <p>{error}</p>}
+        {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
         <input value={query} onChange={(e) => setQuery(e.target.value)} />
         <button onClick={initDb} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Reset DB</button>
         <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded' type='submit'>Run query</button>
