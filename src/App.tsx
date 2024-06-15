@@ -30,6 +30,7 @@ import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css';
 import ViewsTable from './ViewsTable';
+import { format } from 'sql-formatter';
 
 // Representing a view
 interface View {
@@ -169,9 +170,16 @@ function App() {
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
         <div className='flex text-white font-semibold '>
           <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 py-2 px-4 my-3.5 rounded mr-3' type='submit'>Run Query</button>
-          <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700  py-2 px-4 rounded my-3.5' type='submit'>Format Code</button>
+          <button onClick={() => {
+          setQuery(format(query, {
+            language: 'sqlite',
+            tabWidth: 4,
+            useTabs: false,
+            keywordCase: 'upper',
+            dataTypeCase: 'upper',
+            functionCase: 'upper',
+        }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 py-2 px-4 my-3.5 rounded mr-3' type='submit'>Format Code</button>
         </div>
-        
         
         <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} />
           <div className='flex'><button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 my-4 rounded mr-3' type='submit'>Reset DB</button>
