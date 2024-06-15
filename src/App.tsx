@@ -31,15 +31,24 @@ import initSqlJs from "sql.js";
 import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css';
+import ViewsTable from './ViewsTable';
+
+// Representing a view
+interface View {
+  name: string;
+  query: string;
+}
 
 function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState<string>('SELECT * FROM student');
-  const [correctResult, setCorrectResult] = useState<boolean>(true);
+  const [query, setQuery] = useState<string>('SELECT * FROM student;');
+  const [correctResult, setCorrectResult] = useState<boolean>(false);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
+  const [views, setViews] = useState<View[]>([]);
 
   const initDb = useCallback(async () => {
+    setResult(null);
     const sqlPromise = initSqlJs(
       {
         locateFile: (file) => `https://sql.js.org/dist/${file}`,
@@ -50,14 +59,6 @@ function App() {
     const db = new SQL.Database(new Uint8Array(data));
     setDatabase(db);
   }, []);
-
-  const Component = () => {
-    
-    const [code, setCode] = useState<string>(
-      `function add(a, b) {\n  return a + b;\n}`
-    );
-  };
-
 
   useEffect(() => {
     initDb();
@@ -84,23 +85,74 @@ function App() {
     }
   }, [database, query]);
 
+
+  const refreshViews = useCallback((upsert: boolean) => {
+    if (!database) {
+      return;
+    }
+
+    const res = database.exec('SELECT name, sql FROM sqlite_master WHERE type="view"');
+    let fetchedViews: View[] = [];
+    if (res.length !== 0) {
+      const fetched = res[0].values as string[][];
+      fetchedViews = fetched.map(([name, query]) => ({ name, query }));
+    }
+
+    if (upsert) {
+      localStorage.setItem('views', JSON.stringify(fetchedViews));
+    }
+
+    setViews(fetchedViews);
+
+    // Recreate missing views
+    const storedViews = localStorage.getItem('views');
+    if (storedViews) {
+      const savedViews: View[] = JSON.parse(storedViews);
+      const missingViews = savedViews.filter(
+        savedView => !fetchedViews.some(fetchedView => fetchedView.name === savedView.name)
+      );
+      missingViews.forEach(view => {
+        database.exec(view.query);
+      });
+      if (missingViews.length > 0) {
+        refreshViews(true); // Refresh views again to update the state after recreating missing views
+      }
+    }
+  }, [database]);
+
   const runQuery = useCallback(() => {
     if (!database) {
       return;
     }
     try {
       const res = database.exec(query);
-      if (res.length === 0) {
-        setResult({ columns: [], data: [] });
-        return;
+      if (res.length !== 0) {
+        const { columns, values } = res[0];
+        setResult({ columns, data: values });
+      } else {
+        setResult({columns: [], data: []});
       }
-      const { columns, values } = res[0];
-      setResult({ columns, data: values });
+      setCorrectResult(true);
+      refreshViews(true);
     } catch (e) {
       // @ts-ignore
       setError(e.message);
     }
-  }, [database, query]);
+  }, [database, query, refreshViews]);
+
+  const deleteView = useCallback((name: string) => {
+    if (!database) {
+      return;
+    }
+    database.exec(`DROP VIEW ${name}`);
+    refreshViews(true);
+  }, [database, refreshViews]);
+
+  useEffect(() => {
+    refreshViews(false);
+  }, [database, refreshViews]);
+
+
 
   return (
     <div className="App">
@@ -116,28 +168,33 @@ function App() {
         className="font-mono text-3xl  min-w-96 max-w-4xl bg-slate-800 border-2"/>
        
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
-        
-        <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Run Query</button>
-        <button onClick={initDb} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 my-4 px-4 rounded' type='submit' >Reset DB</button>
 
+        <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 px-4 my-3.5 rounded' type='submit'>Run query</button>
+        <button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 my-4 rounded' type='submit'>Reset DB</button>
         <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Export Data</button>
         <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-3.5' type='submit'>Format Code</button>
         
+        <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} />
+
         {result && <>
           {/* if correct result else display wrong result */}
           {correctResult ? <><p className="text-green-500">Correct result!</p>
             <p className="text-sm italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before submitting.</p>
           </> : <p className="text-red-500">Wrong result!</p>}
           {/* Two different result tables next to each other, actual and expected */}
-          <div className="flex max-w-full">
-            <div className="flex-1 px-2">
-              <h2>Expected</h2>
-              <ResultTable columns={result.columns} data={result.data} />
+          <div className="flex max-w-full py-4">
+            <div className="flex-1 px-2 overflow-x-auto">
+              <h2 className="text-3xl py-2">Expected</h2>
+              <div className="overflow-x-auto">
+                <ResultTable columns={result.columns} data={result.data} />
+              </div>
             </div>
-            <div className="flex-1 px-2">
+            <div className="flex-1 px-2 overflow-x-auto">
               {/* TODO */}
-              <h2>Actual</h2>
-              <ResultTable columns={result.columns} data={result.data} />
+              <h2 className="text-3xl py-2">Actual</h2>
+              <div className="overflow-x-auto">
+                <ResultTable columns={result.columns} data={result.data} />
+              </div>
             </div>
           </div>
         </>}
