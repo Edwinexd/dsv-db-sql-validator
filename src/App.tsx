@@ -15,25 +15,26 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
 
 import initSqlJs from "sql.js";
 
-// eslint-disable-next-line import/no-webpack-loader-syntax
-// import sqlWasm from "!!file-loader?name=sql-wasm-[contenthash].wasm!sql.js/dist/sql-wasm.wasm";
-
 function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState<string>('SELECT * FROM student');
 
   const initDb = useCallback(async () => {
-    const SQL = await initSqlJs(
+    const sqlPromise = initSqlJs(
       {
         locateFile: (file) => `https://sql.js.org/dist/${file}`,
       }
     );
-    const db = new SQL.Database();
+    const dataPromise = fetch('/data.sqlite').then((res) => res.arrayBuffer());
+    const [SQL, data] = await Promise.all([sqlPromise, dataPromise]);
+    const db = new SQL.Database(new Uint8Array(data));
     setDatabase(db);
   }, []);
 
@@ -45,18 +46,29 @@ function App() {
     if (!database) {
       return;
     }
-    database.run('CREATE TABLE test (col1, col2);');
-    database.run('INSERT INTO test VALUES (?, ?);', ['Hello', 'World']);
-    const res = database.exec('SELECT * FROM test');
+    const res = database.exec('SELECT * FROM student');
     console.log(res);
   }, [database]);
+
+  useEffect(() => {
+    if (!database) {
+      return;
+    }
+    try {
+      database.prepare(query);
+      setError(null);
+    } catch (e) {
+      // @ts-ignore
+      setError(e.message);
+    }
+  }, [database, query]);
 
   return (
     <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <p>
-          Edit <code>src/App.tsx</code> and save to relaod.
+          Edit <code>src/App.tsx</code> and save to reload.
         </p>
         <a
           className="App-link"
@@ -66,6 +78,8 @@ function App() {
         >
           Learn React
         </a>
+        {error && <p>{error}</p>}
+        <input value={query} onChange={(e) => setQuery(e.target.value)} />
       </header>
     </div>
   );
