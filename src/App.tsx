@@ -31,7 +31,7 @@ import 'prismjs/themes/prism.css';
 function App() {
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState<string>('SELECT * FROM student');
+  const [query, setQuery] = useState<string>('SELECT * FROM student;');
   const [correctResult, setCorrectResult] = useState<boolean>(false);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
 
@@ -123,15 +123,19 @@ function App() {
             <p className="text-sm italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before submitting.</p>
           </> : <p className="text-red-500">Wrong result!</p>}
           {/* Two different result tables next to each other, actual and expected */}
-          <div className="flex max-w-full">
-            <div className="flex-1 px-2">
-              <h2>Expected</h2>
-              <ResultTable columns={result.columns} data={result.data} />
+          <div className="flex max-w-full py-4">
+            <div className="flex-1 px-2 overflow-x-auto">
+              <h2 className="text-3xl py-2">Expected</h2>
+              <div className="overflow-x-auto">
+                <ResultTable columns={result.columns} data={result.data} />
+              </div>
             </div>
-            <div className="flex-1 px-2">
+            <div className="flex-1 px-2 overflow-x-auto">
               {/* TODO */}
-              <h2>Actual</h2>
-              <ResultTable columns={result.columns} data={result.data} />
+              <h2 className="text-3xl py-2">Actual</h2>
+              <div className="overflow-x-auto">
+                <ResultTable columns={result.columns} data={result.data} />
+              </div>
             </div>
           </div>
         </>}
