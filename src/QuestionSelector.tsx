@@ -8,7 +8,7 @@ export interface Question {
   display_sequence: string;
   result: {
     columns: string[];
-    values: string[][];
+    values: (string | number)[][];
   };
 }
 
