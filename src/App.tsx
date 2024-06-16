@@ -31,10 +31,10 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css';
 import ViewsTable from './ViewsTable';
 import { format } from 'sql-formatter';
-import React from 'react';
 
 import questions from './questions.json'
 import { isCorrectResult } from './utils';
+import sha256 from 'crypto-js/sha256';
 
 
 // Representing a view
@@ -50,6 +50,7 @@ function App() {
   const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || "SELECT * FROM student;");
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
   const [views, setViews] = useState<View[]>([]);
+  const [isCorrect, setIsCorrect] = useState<boolean>(false);
   
   const initDb = useCallback(async () => {
     setResult(null);
@@ -159,10 +160,138 @@ function App() {
     refreshViews(false);
   }, [database, refreshViews]);
 
+
+  useEffect(() => {
+    if (!result) {
+      return;
+    }
+    if (!isCorrectResult({columns: question.result.columns, data: question.result.values}, result)) {
+      setIsCorrect(false);
+      return;
+    }
+    setIsCorrect(true);
+    const correctQuestions = localStorage.getItem('correctQuestions');
+    if (!correctQuestions) {
+      localStorage.setItem('correctQuestions', JSON.stringify([question.id]));
+    } else {
+      const parsed = JSON.parse(correctQuestions);
+      if (!parsed.includes(question.id)) {
+        parsed.push(question.id);
+        localStorage.setItem('correctQuestions', JSON.stringify(parsed));
+      }
+    }
+  }, [result, question.result.columns, question.result.values, question.id]);
+
   // Save query based on question
   const loadQuery = useCallback((oldQuestion: Question, newQuestion: Question) => {
     setQuery(localStorage.getItem('questionId-' + newQuestion.id) || "SELECT * FROM student;");
   }, [setQuery]);
+
+  const exportData = useCallback(() => {
+    if (!database) {
+      return;
+    }
+    let output = '';
+
+    output += '-- If you need to edit your submission, do so in the application and export again.\n\n';
+    output += '/* --- BEGIN DO NOT EDIT --- */\n\n';
+    output += '/* --- BEGIN Validation --- */\n';
+    output += '/* --- BEGIN Submission Summary --- */\n';
+    const writtenQueries = localStorage.getItem('correctQuestions');
+    if (writtenQueries) {
+      const parsed = JSON.parse(writtenQueries);
+      const questionsString = parsed.map((id: number) => {
+        const category = questions.find(c => c.questions.some(q => q.id === id))!;
+        const question = category.questions.find(q => q.id === id)!;
+        return `${category.display_number}${question.display_sequence}`;
+      }).sort().join(', ');
+      output += `/* Written Questions: ${questionsString} */\n`;
+    }
+    output += '/* --- END Submission Summary --- */\n';
+    if (views.length > 0) {
+      output += '/* --- BEGIN Views --- */\n';
+      const viewsString = views.map(view => format(view.query, {
+        language: 'sqlite',
+        tabWidth: 4,
+        useTabs: false,
+        keywordCase: 'upper',
+        dataTypeCase: 'upper',
+        functionCase: 'upper',
+      }) + (view.query.endsWith(';') ? '' : ';')).join('\n\n');
+      output += viewsString + '\n';
+      output += '/* --- END Views --- */\n\n';
+    }
+    output += '/* --- BEGIN Submission Queries --- */\n';
+
+    const queries = localStorage.getItem('correctQuestions');
+    if (queries) {
+      const parsed = JSON.parse(queries);
+      const questionQueries = parsed.map((id: number) => {
+        const category = questions.find(c => c.questions.some(q => q.id === id))!;
+        const question = category.questions.find(q => q.id === id)!;
+        const activeQuery = localStorage.getItem('questionId-' + id);
+        if (!activeQuery) {
+          return '';
+        }
+        let formatted = `/* --- BEGIN Question ${category.display_number}${question.display_sequence} (REFERENCE: ${question.id}) --- */\n`;
+        formatted += format(activeQuery + (activeQuery.endsWith(';') ? '' : ';'), {
+          language: 'sqlite',
+          tabWidth: 4,
+          useTabs: false,
+          keywordCase: 'upper',
+          dataTypeCase: 'upper',
+          functionCase: 'upper',
+        });
+        formatted += `\n/* --- END Question ${category.display_number}${question.display_sequence} --- */\n`;
+        return formatted;
+      }).join('\n\n');
+      output += questionQueries;
+    }
+    output += '/* --- END Submission Queries --- */\n';
+
+
+    output += '/* --- END Validation --- */\n';
+    // Calculate hash of everything within the validation block
+    const hashValue = sha256(output.slice(output.indexOf('/* --- BEGIN Validation Block --- */'), output.indexOf('/* --- END Validation Block --- */')));
+    output += `/* --- BEGIN Hash --- */\n---${hashValue}---\n/* --- END Hash --- */\n`;
+    output += '/* --- END DO NOT EDIT --- */\n\n';
+    output += '-- NOTE: The following (Raw Queries, Raw List Dumps) blocks is not part of the submission but used for importing data, may be removed for submission\n';
+    output += '/* --- BEGIN Raw Queries --- */\n';
+    output += '/*\n'
+    const allQueries = localStorage.getItem('writtenQuestions');
+    if (allQueries) {
+      const parsed = JSON.parse(allQueries);
+      const queries: { [key: number]: string } = {};
+      for (const id of parsed) {
+        const activeQuery = localStorage.getItem('questionId-' + id);
+        if (!activeQuery) {
+          continue;
+        }
+        queries[id] = activeQuery;
+      }
+      output += JSON.stringify(queries, null, 0).replace(/\*\//g, '\\*/');
+    }
+    output += '\n*/\n'
+    output += '/* --- END Raw Queries --- */\n';
+    output += '/* --- BEGIN Raw List Dumps --- */\n';
+    output += '-- ' + (localStorage.getItem('writtenQuestions') === null ? '[]' : localStorage.getItem('writtenQuestions')) + '\n';
+    output += '-- ' + (localStorage.getItem('correctQuestions') === null ? '[]' : localStorage.getItem('correctQuestions')) + '\n';
+    output += '/* --- END Raw List Dumps --- */\n';
+
+    const blob = new Blob([output], { type: 'text/sql' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "export.sql";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
+  }, [database, views]);
+
+
 
   return (
     <div className="App">
@@ -194,15 +323,23 @@ function App() {
         </div>
         
         <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} />
-          <div className='flex text-base'><button onClick={initDb} className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 my-4 rounded mr-3 w-13' type='submit'>Reset DB</button>
-          <button onClick={runQuery} className='bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded my-3.5 w-13' type='submit'>Export Data</button></div>
+        <div className='flex text-base'>
+          <button onClick={() => {
+            if (window.confirm('Are you sure you want to reset the database?\n\nNote: This will not reset your written answers.')) {
+              initDb();
+            }
+            }} className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 my-4 rounded mr-3 w-13' type='submit'>Reset DB</button>
+          <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded my-3.5 w-13' type='submit'>Export Data</button>
+        </div>
         
 
         {result && <>
           {/* if correct result else display wrong result */}
-          {isCorrectResult({columns: question.result.columns, data: question.result.values}, result) ? <><p className="text-green-500">Correct result!</p>
+          {isCorrect ? <>
+            <p className="text-green-500">Correct result!</p>
             <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
-          </> : <p className="text-red-500">Wrong result!</p>}
+            </> : <p className="text-red-500">Wrong result!</p>
+          }
           {/* Two different result tables next to each other, actual and expected */}
           <div className="flex max-w-full py-4 w-full justify-center">
             <div className="flex-initial px-2 overflow-x-auto">
