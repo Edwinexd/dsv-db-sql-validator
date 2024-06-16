@@ -13,8 +13,8 @@ interface ViewsTableProps {
 const ViewsTable: React.FC<ViewsTableProps> = ({ views, onRemoveView }) => {
     return (
         <>
-            <h2 className='text-3xl font-semibold'>Views</h2>
-            <table className="table-auto text-sm bg-slate-700">
+            <h2 className='text-3xl font-semibold mb-3.5'>Views</h2>
+            <table className="table-auto text-xl bg-slate-700">
                 <thead>
                     <tr>
                         <th className="border border-slate-600 px-4 py-2 bg-slate-600">Name</th>
@@ -28,7 +28,7 @@ const ViewsTable: React.FC<ViewsTableProps> = ({ views, onRemoveView }) => {
                             <td className="border border-slate-600 px-4 py-2">{view.name}</td>
                             <td className="border border-slate-600 px-4 py-2">{view.query}</td>
                             <td className="border border-slate-600 px-4 py-2">
-                                <button className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded' onClick={() => {
+                                <button className='bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded' onClick={() => {
                                     onRemoveView(view.name);
                                 }}>Delete</button>
                             </td>

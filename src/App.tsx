@@ -89,7 +89,9 @@ function App() {
       }
     }
     try {
-      database.prepare(query);
+      const stmt = database.prepare(query);
+      // Needs to be called per the documentation
+      stmt.free();
       setError(null);
     } catch (e) {
       // @ts-ignore
@@ -339,26 +341,32 @@ function App() {
         {result && <>
           {/* if correct result else display wrong result */}
           {isCorrect ? <>
-            <p className="text-green-500">Correct result!</p>
+            <h2 className="text-3xl font-semibold text-green-500">Matching Result!</h2>
             <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
-            </> : <p className="text-red-500">Wrong result!</p>
+            </> : <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
           }
           {/* Two different result tables next to each other, actual and expected */}
-          <div className="flex max-w-full py-4 w-full justify-center">
+          <div className="flex max-w-full py-4 justify-center">
             <div className="flex-initial px-2 overflow-x-auto">
-              <h2 className="text-3xl py-2">Actual</h2>
-              <div className="overflow-x-auto justify-center grid">
+              <h2 className="text-3xl font-semibold py-2">Actual</h2>
+              <div className="overflow-x-auto max-w-full">
                 <ResultTable columns={result.columns} data={result.data} />
               </div>
             </div>
             <div className="flex-initial px-2 overflow-x-auto">
-              <h2 className="text-3xl py-2">Expected</h2>
-              <div className="overflow-x-auto justify-center grid">
+              <h2 className="text-3xl font-semibold py-2">Expected</h2>
+              <div className="overflow-x-auto max-w-full">
                 <ResultTable columns={question.result.columns} data={question.result.values} />
               </div>
             </div>
           </div>
         </>}
+        <footer className="text-white py-4 my-3">
+          <div className="container mx-auto flex justify-between items-center space-x-8 text-sm">
+            <p>Copyright &copy; <a href="https://github.com/Edwinexd" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Edwin Sundberg</a> {new Date().getFullYear()} - All Rights Reserved</p>              
+            <p><a href="https://github.com/Edwinexd/dsv-db-sql-validator/issues" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Report issues</a></p>
+          </div>
+        </footer>
       </header>
     </div>
   );
