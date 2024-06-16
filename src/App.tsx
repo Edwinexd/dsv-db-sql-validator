@@ -62,6 +62,9 @@ function App() {
     const dataPromise = fetch('/data.sqlite').then((res) => res.arrayBuffer());
     const [SQL, data] = await Promise.all([sqlPromise, dataPromise]);
     const db = new SQL.Database(new Uint8Array(data));
+    db.create_function('YEAR', (date: string) => new Date(date).getFullYear());
+    db.create_function('MONTH', (date: string) => new Date(date).getMonth() + 1);
+    db.create_function('DAY', (date: string) => new Date(date).getDate());
     setDatabase(db);
   }, []);
 
