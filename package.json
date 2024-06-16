@@ -34,10 +34,11 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
+    "start": "npm run copy-sqljs && craco start",
+    "build": "npm run copy-sqljs && craco build",
     "test": "craco test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "copy-sqljs": "copyfiles -f node_modules/sql.js/dist/sql-wasm.wasm public/dist/sql.js/"
   },
   "eslintConfig": {
     "extends": [
@@ -59,6 +60,7 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
+    "copyfiles": "^2.4.1",
     "tailwindcss": "^3.4.4"
   }
 }

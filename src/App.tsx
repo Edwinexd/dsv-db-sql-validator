@@ -56,7 +56,7 @@ function App() {
     setResult(null);
     const sqlPromise = initSqlJs(
       {
-        locateFile: (file) => `https://sql.js.org/dist/${file}`,
+        locateFile: (file) => `/dist/sql.js/${file}`,
       }
     );
     const dataPromise = fetch('/data.sqlite').then((res) => res.arrayBuffer());
