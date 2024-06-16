@@ -301,7 +301,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1 className='text-6xl font-semibold my-3'>SQL TUTOR</h1>
+        <h1 className='text-6xl font-semibold my-3'>DB SQL Validator</h1>
         <img src={logo} className="DB-Layout" alt="logo" />
         <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); setResult(null); setQuestion(selectedQuestion)}}></QuestionSelector>
         <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
