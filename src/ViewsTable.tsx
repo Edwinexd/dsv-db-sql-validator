@@ -69,7 +69,7 @@ const HideableEditor: React.FC<{ query: string }> = ({ query }) => {
                     highlight={code => highlight(code, languages.sql)}
                     padding={10}
                     tabSize={4}
-                    className="font-mono text-sm w-max dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-none my-2"
+                    className="font-mono text-xl w-max dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-none my-2"
                 />
             )}
             <button

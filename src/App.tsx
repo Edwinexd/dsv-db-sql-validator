@@ -316,8 +316,8 @@ function App() {
           onValueChange={code => setQuery(code)}
           highlight={code => highlight(code, languages.sql)}
           padding={10}
-          tabSize={4}
-          className="font-mono text-3xl w-full max-w-4xl dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-black dark:border-white"
+          tabSize={2}
+          className="font-mono text-xl w-full max-w-4xl dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-black dark:border-white"
         />
         
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
