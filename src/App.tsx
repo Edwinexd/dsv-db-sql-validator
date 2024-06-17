@@ -16,25 +16,28 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 import { useCallback, useEffect, useState } from 'react';
-import './App.css';
-import logo from './db_scheme.png';
-import ResultTable from './ResultTable';
 import Editor from 'react-simple-code-editor';
+import './App.css';
+import db_scheme_dark from './db_scheme_dark.png';
+import db_scheme_light from './db_scheme_light.png';
+import ResultTable from './ResultTable';
 
 import QuestionSelector, { Question } from './QuestionSelector';
 
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
-import initSqlJs from "sql.js";
 import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-sql';
 import 'prismjs/themes/prism.css';
-import ViewsTable from './ViewsTable';
 import { format } from 'sql-formatter';
+import initSqlJs from "sql.js";
+import ViewsTable from './ViewsTable';
 
-import questions from './questions.json'
-import { isCorrectResult } from './utils';
 import sha256 from 'crypto-js/sha256';
+import questions from './questions.json';
+import { isCorrectResult } from './utils';
+import ThemeToggle from './ThemeToggle';
+import useTheme from './useTheme';
 
 
 // Representing a view
@@ -51,6 +54,8 @@ function App() {
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
   const [views, setViews] = useState<View[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
+  const { setTheme, isDarkMode } = useTheme();
+  
   
   const initDb = useCallback(async () => {
     setResult(null);
@@ -258,7 +263,7 @@ function App() {
     output += '/* --- END Validation --- */\n';
     // Calculate hash of everything within the validation block
     const hashValue = sha256(output.slice(output.indexOf('/* --- BEGIN Validation Block --- */'), output.indexOf('/* --- END Validation Block --- */')));
-    output += `/* --- BEGIN Hash --- */\n---${hashValue}---\n/* --- END Hash --- */\n`;
+    output += `/* --- BEGIN Hash --- */\n-- ${hashValue}\n/* --- END Hash --- */\n`;
     output += '/* --- END DO NOT EDIT --- */\n\n';
     output += '-- NOTE: The following (Raw Queries, Raw List Dumps) blocks is not part of the submission but used for importing data, may be removed for submission\n';
     output += '/* --- BEGIN Raw Queries --- */\n';
@@ -301,8 +306,10 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
+        <div className='my-2'></div>
+        <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className='text-6xl font-semibold my-3'>DB SQL Validator</h1>
-        <img src={logo} className="DB-Layout" alt="logo" />
+        <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
         <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); setResult(null); setQuestion(selectedQuestion)}}></QuestionSelector>
         <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
         <Editor
@@ -310,7 +317,8 @@ function App() {
           onValueChange={code => setQuery(code)}
           highlight={code => highlight(code, languages.sql)}
           padding={10}
-          className="font-mono text-3xl w-screen max-w-4xl bg-slate-800 border-2 min-h-40"
+          tabSize={4}
+          className="font-mono text-3xl w-full max-w-4xl dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-black dark:border-white"
         />
         
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
@@ -361,10 +369,10 @@ function App() {
             </div>
           </div>
         </>}
-        <footer className="text-white py-4 my-3">
-          <div className="container mx-auto flex justify-between items-center space-x-8 text-sm">
-            <p>Copyright &copy; <a href="https://github.com/Edwinexd" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Edwin Sundberg</a> {new Date().getFullYear()} - All Rights Reserved</p>              
-            <p><a href="https://github.com/Edwinexd/dsv-db-sql-validator/issues" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Report issues</a></p>
+        <footer className="text-lg py-4 my-3">
+          <div className="container mx-auto flex justify-between items-center space-x-8">
+            <p>Copyright &copy; <a href="https://github.com/Edwinexd" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">Edwin Sundberg</a> {new Date().getFullYear()} - All Rights Reserved</p>              
+            <p><a href="https://github.com/Edwinexd/dsv-db-sql-validator/issues" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">Report issues</a></p>
           </div>
         </footer>
       </header>

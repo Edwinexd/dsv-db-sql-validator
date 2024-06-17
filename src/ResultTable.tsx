@@ -17,11 +17,11 @@ const ResultTable: React.FC<ResultTableProps> = ({ columns, data }) => {
     }
     return (
         <>
-            <table className="table-auto text-sm bg-slate-700">
+            <table className="table-auto text-sm dark:bg-slate-700 bg-slate-300">
                 <thead>
                     <tr>
                         {columns.map((col, i) => (
-                            <th key={col + "-" + i} className="border border-slate-600 px-4 py-2 bg-slate-600">{col}</th>
+                            <th key={col + "-" + i} className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">{col}</th>
                         ))}
                     </tr>
                 </thead>
@@ -29,7 +29,7 @@ const ResultTable: React.FC<ResultTableProps> = ({ columns, data }) => {
                     {data.map((row, i) => (
                         <tr key={i}>
                             {row.map((cell, j) => (
-                                <td key={i + "-" + j} className="border border-slate-600 px-4 py-2">{cell}</td>
+                                <td key={i + "-" + j} className="border dark:border-slate-600 px-4 py-2">{cell}</td>
                             ))}
                         </tr>
                     ))}

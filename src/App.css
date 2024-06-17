@@ -6,15 +6,19 @@
   height: 40vmin;
 }
 
-
 .App-header {
-  background-color: #011936;
+  background-color: #efefef;
+  color: #313131;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
+}
+
+.dark .App-header {
+  background-color: #011936;
   color: white;
 }
 
