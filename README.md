@@ -20,11 +20,12 @@ To deploy DB SQL Validator locally, follow these steps:
 3. Start the development server: `npm start`
 
 ## Screenshots
-![Entire Application Dark Mode](images/Screenshot 2024-06-19 191233.png)
-![Entire Application Light Mode](images/Screenshot 2024-06-19 191256.png)
-![Question 1A Dark Mode](images/Screenshot 2024-06-19 191344.png)
-![Question 1A Light Mode](images/Screenshot 2024-06-19 191330.png)
-
+<div style="display: flex; padding: 0;">
+    <img src="images/Screenshot_2024-06-19_191233.png" alt="Entire Application Dark Mode" width="400" style="margin: 0;">
+    <img src="images/Screenshot_2024-06-19_191256.png" alt="Entire Application Light Mode" width="400" style="margin: 0;">
+    <img src="images/Screenshot_2024-06-19_191344.png" alt="Question 1A Dark Mode" width="400" style="margin: 0;">
+    <img src="images/Screenshot_2024-06-19_191330.png" alt="Question 1A Light Mode" width="400" style="margin: 0;">
+</div>
 
 ## License
 This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE.md) file for more information.
