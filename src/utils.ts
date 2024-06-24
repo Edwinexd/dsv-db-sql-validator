@@ -1,3 +1,4 @@
+import { AST, ColumnRef, Expr, From, Function, Parser } from 'node-sql-parser';
 
 const cyrb53 = (str: string, seed = 0) => {
     let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -164,4 +165,232 @@ export function isCorrectResult(expected: Result, actual: Result) {
     }
 
     return actualRowsSet.isEmpty();
+}
+
+interface JoinCondition {
+    table1: string;
+    column1: string;
+    table2: string;
+    column2: string;
+}
+
+interface Column {
+    table: string | null;
+    column: string;
+}
+
+export interface DatabaseColumn {
+    table: string;
+    columns: string[];
+}
+
+enum IssueSeverity {
+    WARNING = 'WARNING',
+    ERROR = 'ERROR'
+}
+
+export abstract class Issue {
+    constructor(public type: string, private severity: IssueSeverity = IssueSeverity.WARNING) {}
+
+    abstract toString(): string;
+
+    getSeverity() {
+        return this.severity;
+    }
+}
+
+class IncompleteJoinIssue extends Issue {
+    constructor(public table1: string, public table2: string) {
+        super('INCOMPLETE_JOIN', IssueSeverity.WARNING);
+    }
+
+    toString() {
+        return `Tables ${this.table1} and ${this.table2} not joined per the FK-PK relationship`; 
+    }
+}
+
+class DanglingTableGroupIssue extends Issue {
+    constructor(public tables: string[]) {
+        super('DANGLING_TABLE_GROUP', IssueSeverity.ERROR);
+    }
+
+    toString() {
+        return `Tables ${this.tables.join(', ')} are not joined to any other table`;
+    }
+}
+
+class IncompleteGroupByIssue extends Issue {
+    constructor(public columns: string[]) {
+        super('INCOMPLETE_GROUP_BY', IssueSeverity.WARNING);
+    }
+
+    toString() {
+        return `Columns ${this.columns.join(', ')} are not in the GROUP BY clause`;
+    }
+}
+
+// This is specific to the SQL dialect used in the course
+class ForbiddenInnerJoinSyntaxIssue extends Issue {
+    constructor() {
+        super('FORBIDDEN_INNER_JOIN_SYNTAX', IssueSeverity.ERROR);
+    }
+
+    toString() {
+        return 'Forbidden INNER JOIN syntax used';
+    }
+}
+
+
+// TODO: Pass this as an argument to the function, should be retrived from the database
+const joinRules: JoinCondition[] = [
+    { table1: 'student', column1: 'personnummer', table2: 'deltagande', column2: 'student' },
+    { table1: 'deltagande', column1: 'kurs', table2: 'kurstillfälle', column2: 'kurs' },
+    { table1: 'deltagande', column1: 'startdatum', table2: 'kurstillfälle', column2: 'startdatum' },
+    { table1: 'kurstillfälle', column1: 'kurs', table2: 'kurs', column2: 'kurskod' },
+    { table1: 'kurstillfälle', column1: 'lärare', table2: 'lärare', column2: 'personnummer' },
+    { table1: 'kurstillfälle', column1: 'rum', table2: 'rum', column2: 'id' },
+    { table1: 'person', column1: 'personnummer', table2: 'student', column2: 'personnummer' },
+    { table1: 'person', column1: 'personnummer', table2: 'lärare', column2: 'personnummer' },
+];
+
+// TODO: Pass this as an argument to the function, should be retrived from the database
+const columnsPerTable: DatabaseColumn[] = [
+    { table: 'person', columns: ['personnummer', 'namn', 'adress', 'postnr', 'ort', 'telefon'] },
+    { table: 'kurs', columns: ['kurskod', 'namn', 'längd', 'pris', 'beskrivning'] },
+    { table: 'kurstillfälle', columns: ['kurs', 'startdatum', 'lärare', 'rum'] },
+    { table: 'student', columns: ['personnummer'] },
+    { table: 'deltagande', columns: ['student', 'kurs', 'startdatum'] },
+    { table: 'lärare', columns: ['personnummer'] },
+    { table: 'rum', columns: ['id'] },
+];
+
+function extractTableAliasMapping(fromClause: From[]) {
+    const mapping: { [key: string]: string } = {};
+
+    fromClause.forEach((tableRef: any) => {
+        if (tableRef.as) {
+            mapping[tableRef.as] = tableRef.table;
+        } else {
+            mapping[tableRef.table] = tableRef.table;
+        }
+    });
+
+    return mapping;
+}
+
+// joinRules: JoinCondition[], columnsPerTable: DatabaseColumn[]
+export function analyzeSQL(sql: string): Issue[] {
+    const parser = new Parser();
+    const ast = parser.astify(sql) as AST;
+
+    const issues: Issue[] = [];
+
+    function findIncompleteJoins(node: AST) {
+        if (node.type === 'select') {
+            const fromClause = node.from;
+            const whereClause = node.where;
+
+            if (fromClause && fromClause.length > 1) {
+                const tableAliasMapping = extractTableAliasMapping(fromClause);
+                const tables = Object.values(tableAliasMapping);
+                const joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+                const requiredJoins = getRequiredJoins(fromClause, tableAliasMapping);
+                // Some join conditions may have table undefined as it is implied
+                // so we define them explicitly by checking the available tables and finding the suitable table
+                // for the undefined table
+                joinConditions.forEach(condition => {
+                    if (!condition[0].table) {
+                        const table = tables.find(t => columnsPerTable.find(cpt => cpt.table === t && cpt.columns.includes(condition[0].column)));
+                        if (table) {
+                            condition[0].table = table;
+                        }
+                    }
+                    if (!condition[1].table) {
+                        const table = tables.find(t => columnsPerTable.find(cpt => cpt.table === t && cpt.columns.includes(condition[1].column)));
+                        if (table) {
+                            condition[1].table = table;
+                        }
+                    }
+                });
+                requiredJoins.forEach(requiredJoin => {
+                    const isCompleteJoin = joinConditions.some(joinCondition => {
+                        return (joinCondition[0].table === requiredJoin[0].table1 &&
+                                joinCondition[0].column === requiredJoin[0].column1 &&
+                                joinCondition[1].table === requiredJoin[0].table2 &&
+                                joinCondition[1].column === requiredJoin[0].column2) ||
+                               (joinCondition[0].table === requiredJoin[0].table2 &&
+                                joinCondition[0].column === requiredJoin[0].column2 &&
+                                joinCondition[1].table === requiredJoin[0].table1 &&
+                                joinCondition[1].column === requiredJoin[0].column1);
+                    });
+                    if (!isCompleteJoin) {
+                        if (issues.filter(issue => issue.type === 'INCOMPLETE_JOIN').map(issue => (issue as IncompleteJoinIssue)).every(issue => issue.table1 !== requiredJoin[0].table1 && issue.table2 !== requiredJoin[0].table2)) {
+                            issues.push(new IncompleteJoinIssue(requiredJoin[0].table1, requiredJoin[0].table2));
+                        }
+                    }
+                });
+            }
+        }
+
+        // Recursively search in child nodes
+        for (const key in node) {
+            // @ts-ignore
+            if (typeof node[key] === 'object' && node[key] !== null) {
+                // @ts-ignore
+                findIncompleteJoins(node[key]);
+            }
+        }
+    }
+
+    function extractJoinConditions(whereClause: Expr | Function, tableAliasMapping: Record<string, string>): Column[][] {
+        const conditions: Column[][] = [];
+
+        if (whereClause.type === 'binary_expr' && whereClause.operator === '=') {
+            // both left and right must have type column_ref
+            if (whereClause.left.type === 'column_ref' && whereClause.right.type === 'column_ref') {
+                const leftTable = (whereClause.left as ColumnRef).table ? tableAliasMapping[(whereClause.left as ColumnRef).table!] || (whereClause.left as ColumnRef).table : null;
+                const rightTable = (whereClause.right as ColumnRef).table ? tableAliasMapping[(whereClause.right as ColumnRef).table!] || (whereClause.right as ColumnRef).table : null;
+                conditions.push([
+                    {
+                        table: leftTable,
+                        column: (whereClause.left as ColumnRef).column as string
+                    },
+                    {
+                        table: rightTable,
+                        column: (whereClause.right as ColumnRef).column as string
+                    }
+                ]);
+            }
+        } else if (whereClause.type === 'binary_expr' && whereClause.operator === 'AND') {
+            conditions.push(...extractJoinConditions(whereClause.left as Expr | Function, tableAliasMapping));
+            conditions.push(...extractJoinConditions(whereClause.right as Expr | Function, tableAliasMapping));
+        }
+
+        return conditions;
+    }
+
+    function getRequiredJoins(fromClause: any[], tableAliasMapping: Record<string, string>): JoinCondition[][] {
+        const tables = fromClause.map(table => (tableAliasMapping[table.as] || table.table as string).toLowerCase());
+        const requiredJoins: JoinCondition[][] = [];
+
+        joinRules.forEach(rule => {
+            if (tables.includes(rule.table1) && tables.includes(rule.table2)) {
+                requiredJoins.push([
+                    { table1: rule.table1, column1: rule.column1, table2: rule.table2, column2: rule.column2 }
+                ]);
+            }
+        });
+
+        return requiredJoins;
+    }
+
+    findIncompleteJoins(ast);
+
+    // TODO: Find dangling table groups
+
+    // TODO: Find incomplete GROUP BY
+
+    // TODO: Find forbidden INNER JOIN syntax
+
+    return issues;
 }

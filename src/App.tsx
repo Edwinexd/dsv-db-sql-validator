@@ -34,7 +34,7 @@ import ViewsTable from './ViewsTable';
 
 import sha256 from 'crypto-js/sha256';
 import questions from './questions.json';
-import { isCorrectResult } from './utils';
+import { analyzeSQL, isCorrectResult } from './utils';
 import ThemeToggle from './ThemeToggle';
 import useTheme from './useTheme';
 
@@ -97,7 +97,9 @@ function App() {
       // Needs to be called per the documentation
       stmt.free();
       setError(null);
+      console.log(analyzeSQL(query));
     } catch (e) {
+      console.error(e)
       // @ts-ignore
       setError(e.message);
     }
