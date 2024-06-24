@@ -25,3 +25,11 @@
 .App-link {
   color: #61dafb;
 }
+
+body {
+  background-color: #efefef;
+}
+
+.dark body {
+  background-color: #011936;
+}
