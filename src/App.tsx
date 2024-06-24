@@ -258,13 +258,6 @@ function App() {
     }
     output += '/* --- END Submission Queries --- */\n';
 
-
-    output += '/* --- END Validation --- */\n';
-    // Calculate hash of everything within the validation block
-    const hashValue = sha256(output.slice(output.indexOf('/* --- BEGIN Validation Block --- */'), output.indexOf('/* --- END Validation Block --- */')));
-    output += `/* --- BEGIN Hash --- */\n-- ${hashValue}\n/* --- END Hash --- */\n`;
-    output += '/* --- END DO NOT EDIT --- */\n\n';
-    output += '-- NOTE: The following (Raw Queries, Raw List Dumps) blocks is not part of the submission but used for importing data, may be removed for submission\n';
     output += '/* --- BEGIN Raw Queries --- */\n';
     output += '/*\n'
     const allQueries = localStorage.getItem('writtenQuestions');
@@ -286,6 +279,12 @@ function App() {
     output += '-- ' + (localStorage.getItem('writtenQuestions') === null ? '[]' : localStorage.getItem('writtenQuestions')) + '\n';
     output += '-- ' + (localStorage.getItem('correctQuestions') === null ? '[]' : localStorage.getItem('correctQuestions')) + '\n';
     output += '/* --- END Raw List Dumps --- */\n';
+
+    output += '/* --- END Validation --- */\n';
+    // Calculate hash of everything within the validation block
+    const hashValue = sha256(output.slice(output.indexOf('/* --- BEGIN Validation Block --- */'), output.indexOf('/* --- END Validation Block --- */')));
+    output += `/* --- BEGIN Hash --- */\n-- ${hashValue}\n/* --- END Hash --- */\n`;
+    output += '/* --- END DO NOT EDIT --- */\n\n';
 
     const blob = new Blob([output], { type: 'text/sql' });
     const url = URL.createObjectURL(blob);
