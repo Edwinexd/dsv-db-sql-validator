@@ -386,8 +386,81 @@ export function analyzeSQL(sql: string): Issue[] {
 
     findIncompleteJoins(ast);
 
-    // TODO: Find dangling table groups
+    function findDanglingTableGroups(node: AST) {
+        if (node.type === 'select') {
+            const fromClause = node.from;
+            const whereClause = node.where;
 
+            if (fromClause && fromClause.length > 1) {
+                const tableAliasMapping = extractTableAliasMapping(fromClause);
+                const tables = Object.values(tableAliasMapping);
+                const joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+                // Some join conditions may have table undefined as it is implied
+                // so we define them explicitly by checking the available tables and finding the suitable table
+                // for the undefined table
+                joinConditions.forEach(condition => {
+                    if (!condition[0].table) {
+                        const table = tables.find(t => columnsPerTable.find(cpt => cpt.table === t && cpt.columns.includes(condition[0].column)));
+                        if (table) {
+                            condition[0].table = table;
+                        }
+                    }
+                    if (!condition[1].table) {
+                        const table = tables.find(t => columnsPerTable.find(cpt => cpt.table === t && cpt.columns.includes(condition[1].column)));
+                        if (table) {
+                            condition[1].table = table;
+                        }
+                    }
+                });
+                // Take any table, consider it joined. Find any join conditions that involve this table
+                // add its other table to the joined tables list
+                // continue until we cant expand the tree
+                // (technically a minimal spanning tree problem)
+                const joinedTables: string[] = [tables[0]];
+                const remainingConditions = joinConditions.slice();
+
+                while (remainingConditions.length > 0) {
+                    const newConditions = remainingConditions.filter(condition => {
+                        return (joinedTables.includes(condition[0].table!) && !joinedTables.includes(condition[1].table!)) ||
+                               (joinedTables.includes(condition[1].table!) && !joinedTables.includes(condition[0].table!));
+                    });
+                    if (newConditions.length === 0) {
+                        break;
+                    }
+                    newConditions.forEach(condition => {
+                        if (joinedTables.includes(condition[0].table!)) {
+                            joinedTables.push(condition[1].table!);
+                        } else {
+                            joinedTables.push(condition[0].table!);
+                        }
+                    });
+                    for (const condition of newConditions) {
+                        const index = remainingConditions.findIndex(c => c[0].table === condition[0].table && c[0].column === condition[0].column && c[1].table === condition[1].table && c[1].column === condition[1].column);
+                        if (index !== -1) {
+                            remainingConditions.splice(index, 1);
+                        }
+                    }
+                }
+
+                const danglingTables = tables.filter(t => !joinedTables.includes(t));
+                if (danglingTables.length > 0) {
+                    issues.push(new DanglingTableGroupIssue(danglingTables));
+                }
+
+            }
+        }
+
+        // Recursively search in child nodes
+        for (const key in node) {
+            // @ts-ignore
+            if (typeof node[key] === 'object' && node[key] !== null) {
+                // @ts-ignore
+                findDanglingTableGroups(node[key]);
+            }
+        }
+    }
+
+    findDanglingTableGroups(ast);
     // TODO: Find incomplete GROUP BY
 
     // TODO: Find forbidden INNER JOIN syntax
