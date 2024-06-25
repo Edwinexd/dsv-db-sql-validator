@@ -203,32 +203,36 @@ function App() {
     let output = '';
 
     output += '-- If you need to edit your submission, do so in the application and export again.\n\n';
-    output += '/* --- BEGIN DO NOT EDIT --- */\n\n';
+    output += '/* --- BEGIN DO NOT EDIT --- */\n';
     output += '/* --- BEGIN Validation --- */\n';
+
     output += '/* --- BEGIN Submission Summary --- */\n';
-    const writtenQueries = localStorage.getItem('correctQuestions');
-    if (writtenQueries) {
-      const parsed = JSON.parse(writtenQueries);
-      const questionsString = parsed.map((id: number) => {
-        const category = questions.find(c => c.questions.some(q => q.id === id))!;
-        const question = category.questions.find(q => q.id === id)!;
-        return `${category.display_number}${question.display_sequence}`;
-      }).sort().join(', ');
-      output += `/* Written Questions: ${questionsString} */\n`;
-    }
+    const writtenQueries = localStorage.getItem('correctQuestions') || '[]';
+    const parsed = JSON.parse(writtenQueries);
+    const questionsString = parsed.map((id: number) => {
+      const category = questions.find(c => c.questions.some(q => q.id === id))!;
+      const question = category.questions.find(q => q.id === id)!;
+      return `${category.display_number}${question.display_sequence}`;
+    }).sort().join(', ');
+    output += `-- Written Questions: ${questionsString}\n`;
     output += '/* --- END Submission Summary --- */\n';
     if (views.length > 0) {
       output += '/* --- BEGIN Views --- */\n';
-      const viewsString = views.map(view => format(view.query, {
-        language: 'sqlite',
-        tabWidth: 2,
-        useTabs: false,
-        keywordCase: 'upper',
-        dataTypeCase: 'upper',
-        functionCase: 'upper',
-      }) + (view.query.endsWith(';') ? '' : ';')).join('\n\n');
+      const viewsString = views.map(view => {
+        let out = format(view.query, {
+          language: 'sqlite',
+          tabWidth: 2,
+          useTabs: false,
+          keywordCase: 'upper',
+          dataTypeCase: 'upper',
+          functionCase: 'upper',
+        });
+        out += (view.query.endsWith(';') ? '' : ';')
+        out = `/* --- BEGIN View ${view.name} --- */\n${out}\n/* --- END View ${view.name} --- */`;
+        return out;
+      }).join('\n');
       output += viewsString + '\n';
-      output += '/* --- END Views --- */\n\n';
+      output += '/* --- END Views --- */\n';
     }
     output += '/* --- BEGIN Submission Queries --- */\n';
 
@@ -251,10 +255,11 @@ function App() {
           dataTypeCase: 'upper',
           functionCase: 'upper',
         });
-        formatted += `\n/* --- END Question ${category.display_number}${question.display_sequence} --- */\n`;
+        formatted += `\n/* --- END Question ${category.display_number}${question.display_sequence} (REFERENCE: ${question.id}) --- */`;
         return formatted;
-      }).join('\n\n');
+      }).join('\n');
       output += questionQueries;
+      output += '\n';
     }
     output += '/* --- END Submission Queries --- */\n';
 
@@ -284,7 +289,7 @@ function App() {
     // Calculate hash of everything within the validation block
     const hashValue = sha256(output.slice(output.indexOf('/* --- BEGIN Validation Block --- */'), output.indexOf('/* --- END Validation Block --- */')));
     output += `/* --- BEGIN Hash --- */\n-- ${hashValue}\n/* --- END Hash --- */\n`;
-    output += '/* --- END DO NOT EDIT --- */\n\n';
+    output += '/* --- END DO NOT EDIT --- */\n';
 
     const blob = new Blob([output], { type: 'text/sql' });
     const url = URL.createObjectURL(blob);
@@ -299,6 +304,82 @@ function App() {
     URL.revokeObjectURL(url);
   }, [database, views]);
 
+  const upsertData = useCallback((data: string) => {
+    // Extract raw queries
+    const rawQueries = data.match(/\/\*\s--- BEGIN Raw Queries --- \*\/\n\/\*\n([\s\S]*?)\n\*\/\n\/\*\s--- END Raw Queries --- \*\//)![1];
+    const parsedQueries: { [key: string]: string } = JSON.parse(rawQueries.replace(/\\\*\//g, '*/'));
+    
+    // Clear current data
+    const writtenQuestions: number[] = JSON.parse(localStorage.getItem('writtenQuestions') || '[]');
+    writtenQuestions.forEach(id => {
+      localStorage.removeItem(`questionId-${id}`);
+    });
+    localStorage.removeItem('writtenQuestions');
+    localStorage.removeItem('correctQuestions');
+    
+    // Insert new data
+    for (const [key, value] of Object.entries(parsedQueries)) {
+      localStorage.setItem(`questionId-${key}`, value);
+      if (Number(key) === question.id) {
+        setQuery(value);
+      }
+    }
+    
+    // Extract and load raw list dumps
+    const rawLists = data.match(/\/\*\s--- BEGIN Raw List Dumps --- \*\/\n--\s(.*)\n--\s(.*)\n\/\*\s--- END Raw List Dumps --- \*\//)!;
+    
+    localStorage.setItem('writtenQuestions', rawLists[1]);
+    localStorage.setItem('correctQuestions', rawLists[2]);
+    
+    // Upsert views
+    // Delete all current views
+    views.forEach(view => {
+      database!.exec(`DROP VIEW ${view.name}`);
+    });
+
+    const viewsBlock = data.match(/\/\*\s--- BEGIN Views --- \*\/\n([\s\S]*?)\n\/\*\s--- END Views --- \*\//);
+    if (viewsBlock) {
+      const viewsData = viewsBlock[1];
+      const newViews = viewsData.match(/\/\*\s--- BEGIN View (.*) --- \*\/\n([\s\S]*?)\n\/\*\s--- END View (.*) --- \*\//g)!;
+      for (const view of newViews) {
+        // const viewName = view.match(/\/\*\s--- BEGIN View (.*) --- \*\//)![1];
+        const viewQuery = view.match(/\/\*\s--- BEGIN View (.*) --- \*\/\n([\s\S]*?)\n\/\*\s--- END View (.*) --- \*\//)![2];
+        database!.exec(viewQuery);
+      }
+      refreshViews(true);
+    }
+  }, [database, question.id, refreshViews, views]);
+
+  const importData = useCallback(() => {
+    // Confirm that the user wants to import data, it will overwrite the current data
+    if (!window.confirm('Are you sure you want to import data?\n\nNote: This will overwrite your current data.')) {
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.sql';
+    input.onchange = async (e) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.files || target.files.length === 0) {
+        return;
+      }
+      const file = target.files[0];
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        if (!e.target || typeof e.target.result !== 'string') {
+          return;
+        }
+        const data = e.target.result;
+        if (!data) {
+          return;
+        }
+        upsertData(data);
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [upsertData]);
 
 
   return (
@@ -341,6 +422,7 @@ function App() {
             }
             }} className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40' type='submit'>Reset DB</button>
           <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40' type='submit'>Export Data</button>
+          <button onClick={importData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40' type='submit'>Import Data</button>
         </div>
         
 
