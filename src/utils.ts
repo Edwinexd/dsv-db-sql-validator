@@ -285,15 +285,18 @@ export function analyzeSQL(sql: string): Issue[] {
 
     const issues: Issue[] = [];
 
-    function findIncompleteJoins(node: AST) {
+    function findIncompleteJoins(node: AST, tableAliasMapping: Record<string, string>) {
+        let nextAliasMapping = { ...tableAliasMapping };
         if (node.type === 'select') {
             const fromClause = node.from;
             const whereClause = node.where;
 
             if (fromClause && fromClause.length > 1) {
-                const tableAliasMapping = extractTableAliasMapping(fromClause);
-                const tables = Object.values(tableAliasMapping);
-                let joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+                const localTableAliasMapping = extractTableAliasMapping(fromClause);
+                const combinedTableAliasMapping = { ...tableAliasMapping, ...localTableAliasMapping };
+                nextAliasMapping = { ...combinedTableAliasMapping}
+                const tables = Object.values(combinedTableAliasMapping);
+                let joinConditions = whereClause ? extractJoinConditions(whereClause, combinedTableAliasMapping) : [];
 
                 // Handling explicit JOIN ... ON conditions
                 fromClause.forEach(part => {
@@ -302,12 +305,12 @@ export function analyzeSQL(sql: string): Issue[] {
                     }
                     const join = part as Join;
                     if (join.join && join.on) {
-                        const onConditions = extractJoinConditions(join.on, tableAliasMapping);
+                        const onConditions = extractJoinConditions(join.on, combinedTableAliasMapping);
                         joinConditions = joinConditions.concat(onConditions);
                     }
                 });
 
-                const requiredJoins = getRequiredJoins(fromClause, tableAliasMapping);
+                const requiredJoins = getRequiredJoins(fromClause, combinedTableAliasMapping);
                 // Some join conditions may have table undefined as it is implied
                 // so we define them explicitly by checking the available tables and finding the suitable table
                 // for the undefined table
@@ -350,7 +353,7 @@ export function analyzeSQL(sql: string): Issue[] {
             // @ts-ignore
             if (typeof node[key] === 'object' && node[key] !== null) {
                 // @ts-ignore
-                findIncompleteJoins(node[key]);
+                findIncompleteJoins(node[key], nextAliasMapping);
             }
         }
     }
@@ -397,18 +400,20 @@ export function analyzeSQL(sql: string): Issue[] {
         return requiredJoins;
     }
 
-    // TODO: Joins written with JOIN student ON ... does not work at the moment 
-    findIncompleteJoins(ast);
+    findIncompleteJoins(ast, {});
 
-    function findDanglingTableGroups(node: AST) {
+    function findDanglingTableGroups(node: AST, tableAliasMapping: Record<string, string>) {
+        let nextAliasMapping = { ...tableAliasMapping };
         if (node.type === 'select') {
             const fromClause = node.from;
             const whereClause = node.where;
 
             if (fromClause && fromClause.length > 1) {
-                const tableAliasMapping = extractTableAliasMapping(fromClause);
-                const tables = Object.values(tableAliasMapping);
-                let joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+                const localTableAliasMapping = extractTableAliasMapping(fromClause);
+                const combinedTableAliasMapping = { ...tableAliasMapping, ...localTableAliasMapping };
+                nextAliasMapping = { ...combinedTableAliasMapping}
+                const tables = Object.values(combinedTableAliasMapping);
+                let joinConditions = whereClause ? extractJoinConditions(whereClause, combinedTableAliasMapping) : [];
 
                 // Handling explicit JOIN ... ON conditions
                 fromClause.forEach(part => {
@@ -417,7 +422,7 @@ export function analyzeSQL(sql: string): Issue[] {
                     }
                     const join = part as Join;
                     if (join.join && join.on) {
-                        const onConditions = extractJoinConditions(join.on, tableAliasMapping);
+                        const onConditions = extractJoinConditions(join.on, combinedTableAliasMapping);
                         joinConditions = joinConditions.concat(onConditions);
                     }
                 });
@@ -481,12 +486,12 @@ export function analyzeSQL(sql: string): Issue[] {
             // @ts-ignore
             if (typeof node[key] === 'object' && node[key] !== null) {
                 // @ts-ignore
-                findDanglingTableGroups(node[key]);
+                findDanglingTableGroups(node[key], nextAliasMapping);
             }
         }
     }
 
-    findDanglingTableGroups(ast);
+    findDanglingTableGroups(ast, {});
 
     function findIncompleteGroupBy(node: AST) {
         if (node.type === 'select') {
@@ -514,6 +519,7 @@ export function analyzeSQL(sql: string): Issue[] {
             }
         }
     }
+
     findIncompleteGroupBy(ast);
 
     function findForbiddenInnerJoinSyntax(node: AST) {
