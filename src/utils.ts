@@ -1,4 +1,4 @@
-import { AST, ColumnRef, Expr, From, Function, Parser } from 'node-sql-parser';
+import { AST, Column, ColumnRef, Expr, From, Function, Parser } from 'node-sql-parser';
 
 const cyrb53 = (str: string, seed = 0) => {
     let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -174,7 +174,7 @@ interface JoinCondition {
     column2: string;
 }
 
-interface Column {
+interface ColumnConstraint {
     table: string | null;
     column: string;
 }
@@ -342,8 +342,8 @@ export function analyzeSQL(sql: string): Issue[] {
         }
     }
 
-    function extractJoinConditions(whereClause: Expr | Function, tableAliasMapping: Record<string, string>): Column[][] {
-        const conditions: Column[][] = [];
+    function extractJoinConditions(whereClause: Expr | Function, tableAliasMapping: Record<string, string>): ColumnConstraint[][] {
+        const conditions: ColumnConstraint[][] = [];
 
         if (whereClause.type === 'binary_expr' && whereClause.operator === '=') {
             // both left and right must have type column_ref
@@ -461,7 +461,34 @@ export function analyzeSQL(sql: string): Issue[] {
     }
 
     findDanglingTableGroups(ast);
-    // TODO: Find incomplete GROUP BY
+
+    function findIncompleteGroupBy(node: AST) {
+        if (node.type === 'select') {
+            const groupByClause = node.groupby;
+            const selectClause = node.columns as Column[];
+            console.log(selectClause)
+
+            if (groupByClause && selectClause) {
+                const groupByColumns = groupByClause.map((column: ColumnRef) => column.column as string);
+                const selectColumns = selectClause.map((column: Column) => (column.expr as ColumnRef).column as string);
+
+                const missingColumns = selectColumns.filter(column => !groupByColumns.includes(column));
+                if (missingColumns.length > 0) {
+                    issues.push(new IncompleteGroupByIssue(missingColumns));
+                }
+            }
+        }
+
+        // Recursively search in child nodes
+        for (const key in node) {
+            // @ts-ignore
+            if (typeof node[key] === 'object' && node[key] !== null) {
+                // @ts-ignore
+                findIncompleteGroupBy(node[key]);
+            }
+        }
+    }
+    findIncompleteGroupBy(ast);
 
     // TODO: Find forbidden INNER JOIN syntax
 
