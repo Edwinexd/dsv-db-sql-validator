@@ -250,6 +250,16 @@ class ForbiddenInnerJoinSyntaxIssue extends Issue {
     }
 }
 
+class UselessDistinctIssue extends Issue {
+    constructor() {
+        super('USELESS_DISTINCT', IssueSeverity.WARNING);
+    }
+
+    toString() {
+        return 'DISTINCT has no effect when a correct GROUP BY clause is present';
+    }
+}
+
 type ASTFunction<T extends any[]> = (node: AST, ...args: T) => void;
 
 export class SQLAnalyzer {
@@ -525,10 +535,43 @@ export class SQLAnalyzer {
         return issues;
     }
 
+    private findUselessDistinct(node: AST, issues: UselessDistinctIssue[]): UselessDistinctIssue[] {
+        if (node.type === 'select') {
+            const distinct = node.distinct;
+            const groupBy = node.groupby;
+
+            if (distinct && groupBy) {
+                issues.push(new UselessDistinctIssue());
+            }
+        }
+
+        // Recursively search in child nodes
+        this.traverseAst(node, this.findUselessDistinct, issues);
+
+        return issues;
+    }
+
     analyze(sql: string): Issue[] {
         let asts: AST[];
         try {
-            const partialAsts = this.parser.astify(sql);
+            let query = sql;
+            query = sql.replace(/OUTER\s+(LEFT|RIGHT)\s+JOIN/gi, "$1 JOIN");
+            // this parser does not support å ä ö on anyting so we replace it before parsing
+            query = query.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
+            // TODO Move this...
+            // same replacements on all tables columns and join rules
+            this.columnsPerTable.forEach(cpt => {
+                cpt.table = cpt.table.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
+                cpt.columns = cpt.columns.map(col => col.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o'));
+            });
+            this.joinRules.forEach(jr => {
+                jr.table1 = jr.table1.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
+                jr.column1 = jr.column1.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
+                jr.table2 = jr.table2.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
+                jr.column2 = jr.column2.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
+            });
+        
+            const partialAsts = this.parser.astify(query, { database: 'sqlite' });
             asts = Array.isArray(partialAsts) ? partialAsts : [partialAsts];
         } catch (e) {
             if (e instanceof Error && "name" in e && e.name === "SyntaxError") {
@@ -548,9 +591,12 @@ export class SQLAnalyzer {
             
                 issues.push(...this.findForbiddenInnerJoinSyntax(ast, []));
 
-                // TODO: Useless distinct (when group by is present)
+                issues.push(...this.findUselessDistinct(ast, []));
 
                 // TODO: Order by followed by limit is not guaranteed to yield the correct result
+                // Not sure how to describe this in a meaningful way without causing confusion / Edwin 2024-06-25
+
+                // TODO: Outer joins with null filtering should be a inner join instead
             }
             return issues.sort((a, b) => {
                 if (a.getSeverity() === b.getSeverity()) {
