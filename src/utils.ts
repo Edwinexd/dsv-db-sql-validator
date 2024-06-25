@@ -1,4 +1,4 @@
-import { AST, Column, ColumnRef, Expr, From, Function, Join, Parser } from 'node-sql-parser';
+import { AST, BaseFrom, Column, ColumnRef, Expr, From, Function, Join, Parser } from 'node-sql-parser';
 
 const cyrb53 = (str: string, seed = 0) => {
     let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -259,8 +259,10 @@ export class SQLAnalyzer {
 
     private extractTableAliasMapping(fromClause: From[]) {
         const mapping: { [key: string]: string } = {};
-
-        fromClause.forEach((tableRef: any) => {
+        fromClause.forEach((tableRef) => {
+            if ("type" in tableRef || "expr" in tableRef) {
+                return;
+            }
             if (tableRef.as) {
                 mapping[tableRef.as] = tableRef.table;
             } else {
@@ -309,8 +311,15 @@ export class SQLAnalyzer {
         return conditions;
     }
 
-    private getRequiredJoins(fromClause: any[], tableAliasMapping: Record<string, string>): JoinCondition[][] {
-        const tables = fromClause.map(table => (tableAliasMapping[table.as] || table.table as string).toLowerCase());
+    private getRequiredJoins(fromClause: From[], tableAliasMapping: Record<string, string>): JoinCondition[][] {
+        const tables = fromClause.filter(table => !("join" in table) && !("expr" in table)).map(table => {
+            const tableFrom = table as BaseFrom;
+            if (tableFrom.as) {
+                return tableFrom.as;
+            } else {
+                return tableFrom.table;
+            }
+        }).map(table => table.toLowerCase());
         const requiredJoins: JoinCondition[][] = [];
 
         this.joinRules.forEach(rule => {
@@ -482,7 +491,7 @@ export class SQLAnalyzer {
 
             if (groupByClause && selectClause) {
                 const groupByColumns = groupByClause.map((column: ColumnRef) => column.column as string);
-                const selectColumns = selectClause.map((column: Column) => (column.expr as ColumnRef).column as string);
+                const selectColumns = selectClause.filter(column => column.expr.type === 'column_ref').map((column: Column) => (column.expr as ColumnRef).column as string);
 
                 const missingColumns = selectColumns.filter(column => !groupByColumns.includes(column));
                 if (missingColumns.length > 0) {
@@ -538,6 +547,10 @@ export class SQLAnalyzer {
                 issues.push(...this.findIncompleteGroupBy(ast, {}, []));
             
                 issues.push(...this.findForbiddenInnerJoinSyntax(ast, []));
+
+                // TODO: Useless distinct (when group by is present)
+
+                // TODO: Order by followed by limit is not guaranteed to yield the correct result
             }
             return issues.sort((a, b) => {
                 if (a.getSeverity() === b.getSeverity()) {
