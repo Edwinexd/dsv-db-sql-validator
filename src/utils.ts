@@ -225,7 +225,7 @@ class DanglingTableGroupIssue extends Issue {
     }
 
     toString() {
-        return `Tables ${this.tables.join(', ')} are not joined to any other table`;
+        return `Tables ${this.tables.join(', ')} are not joined to the other table(s)`;
     }
 }
 
@@ -539,7 +539,12 @@ export class SQLAnalyzer {
             
                 issues.push(...this.findForbiddenInnerJoinSyntax(ast, []));
             }
-            return issues;
+            return issues.sort((a, b) => {
+                if (a.getSeverity() === b.getSeverity()) {
+                    return 0;
+                }
+                return a.getSeverity() === IssueSeverity.ERROR ? -1 : 1;
+            });
         } catch (e) {
             console.error(e);
             return [new AnalyzerIssue("Unknown Error, see console for details")];
