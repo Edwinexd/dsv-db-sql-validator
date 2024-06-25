@@ -1,4 +1,4 @@
-import { AST, Column, ColumnRef, Expr, From, Function, Parser } from 'node-sql-parser';
+import { AST, Column, ColumnRef, Expr, From, Function, Join, Parser } from 'node-sql-parser';
 
 const cyrb53 = (str: string, seed = 0) => {
     let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -293,7 +293,20 @@ export function analyzeSQL(sql: string): Issue[] {
             if (fromClause && fromClause.length > 1) {
                 const tableAliasMapping = extractTableAliasMapping(fromClause);
                 const tables = Object.values(tableAliasMapping);
-                const joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+                let joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+
+                // Handling explicit JOIN ... ON conditions
+                fromClause.forEach(part => {
+                    if (!("join" in part)) {
+                        return;
+                    }
+                    const join = part as Join;
+                    if (join.join && join.on) {
+                        const onConditions = extractJoinConditions(join.on, tableAliasMapping);
+                        joinConditions = joinConditions.concat(onConditions);
+                    }
+                });
+
                 const requiredJoins = getRequiredJoins(fromClause, tableAliasMapping);
                 // Some join conditions may have table undefined as it is implied
                 // so we define them explicitly by checking the available tables and finding the suitable table
@@ -384,6 +397,7 @@ export function analyzeSQL(sql: string): Issue[] {
         return requiredJoins;
     }
 
+    // TODO: Joins written with JOIN student ON ... does not work at the moment 
     findIncompleteJoins(ast);
 
     function findDanglingTableGroups(node: AST) {
@@ -394,7 +408,19 @@ export function analyzeSQL(sql: string): Issue[] {
             if (fromClause && fromClause.length > 1) {
                 const tableAliasMapping = extractTableAliasMapping(fromClause);
                 const tables = Object.values(tableAliasMapping);
-                const joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+                let joinConditions = whereClause ? extractJoinConditions(whereClause, tableAliasMapping) : [];
+
+                // Handling explicit JOIN ... ON conditions
+                fromClause.forEach(part => {
+                    if (!("join" in part)) {
+                        return;
+                    }
+                    const join = part as Join;
+                    if (join.join && join.on) {
+                        const onConditions = extractJoinConditions(join.on, tableAliasMapping);
+                        joinConditions = joinConditions.concat(onConditions);
+                    }
+                });
                 // Some join conditions may have table undefined as it is implied
                 // so we define them explicitly by checking the available tables and finding the suitable table
                 // for the undefined table
@@ -490,7 +516,30 @@ export function analyzeSQL(sql: string): Issue[] {
     }
     findIncompleteGroupBy(ast);
 
-    // TODO: Find forbidden INNER JOIN syntax
+    function findForbiddenInnerJoinSyntax(node: AST) {
+        if (node.type === 'select') {
+            const fromClause = node.from;
+
+            if (fromClause) {
+                fromClause.forEach(part => {
+                    if ("join" in part && part.join === 'INNER JOIN') {
+                        issues.push(new ForbiddenInnerJoinSyntaxIssue());
+                    }
+                });
+            }
+        }
+
+        // Recursively search in child nodes
+        for (const key in node) {
+            // @ts-ignore
+            if (typeof node[key] === 'object' && node[key] !== null) {
+                // @ts-ignore
+                findForbiddenInnerJoinSyntax(node[key]);
+            }
+        }
+    }
+
+    findForbiddenInnerJoinSyntax(ast);
 
     return issues;
 }
