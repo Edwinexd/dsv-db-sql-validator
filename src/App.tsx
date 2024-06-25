@@ -34,7 +34,7 @@ import ViewsTable from './ViewsTable';
 
 import sha256 from 'crypto-js/sha256';
 import questions from './questions.json';
-import { analyzeSQL, isCorrectResult } from './utils';
+import { Issue, JoinCondition, SQLAnalyzer, TableColumns, isCorrectResult } from './utils';
 import ThemeToggle from './ThemeToggle';
 import useTheme from './useTheme';
 
@@ -54,6 +54,10 @@ function App() {
   const [views, setViews] = useState<View[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const { setTheme, isDarkMode } = useTheme();
+
+  const [sqlAnalyzer, setSqlAnalyzer] = useState<SQLAnalyzer | null>(null);
+  const [analysisResults, setAnalysisResults] = useState<Issue[] | null>(null);
+  const [displayAnalyzer, setDisplayAnalyzer] = useState<boolean>(true);
   
   
   const initDb = useCallback(async () => {
@@ -96,14 +100,19 @@ function App() {
       const stmt = database.prepare(query);
       // Needs to be called per the documentation
       stmt.free();
-      setError(null);
-      console.log(analyzeSQL(query));
     } catch (e) {
-      console.error(e)
       // @ts-ignore
       setError(e.message);
+      return;
     }
-  }, [database, query, question.id]);
+    setError(null);
+    if (!sqlAnalyzer) {
+      return;
+    }
+    const issues = sqlAnalyzer.analyze(query);
+    setAnalysisResults(issues);
+
+  }, [database, query, question.id, sqlAnalyzer]);
 
 
   const refreshViews = useCallback((upsert: boolean) => {
@@ -170,6 +179,47 @@ function App() {
   useEffect(() => {
     refreshViews(false);
   }, [database, refreshViews]);
+
+  const reloadAnalyzer = useCallback(() => {
+    if (!database) {
+      return;
+    }
+    // Select all tables and columns from the database
+    const names = database.exec('SELECT name FROM sqlite_master WHERE type="table"');
+    if (names.length === 0) {
+      return;
+    }
+    const tables = (names[0].values as string[][]).map(([name]) => name);
+    const columnsPerTable: TableColumns[] = tables.map((table) => {
+      const columns = database.exec(`PRAGMA table_info(${table})`);
+      const columnNames = columns[0].values.map(([_, name]) => name);
+      return { table: table.toLowerCase(), columns: columnNames.map((name) => (name as string).toLowerCase()) };
+    });
+
+    // Look at foreign keys to determine and build join rules
+    const joinRules: JoinCondition[] = [];
+    for (const table of tables) {
+      const foreignKeys = database.exec(`PRAGMA foreign_key_list(${table})`);
+      if (foreignKeys.length === 0) {
+        continue;
+      }
+      // Technically incorrect typing but the columns we are interested in are strings
+      for (const key of foreignKeys[0].values as string[][]) {
+        joinRules.push({
+          table1: table.toLowerCase(),
+          column1: key[3], // "our" column
+          table2: key[2].toLowerCase(), // table 
+          column2: key[4], // "their" column
+        });
+      }
+    }
+
+    setSqlAnalyzer(new SQLAnalyzer(joinRules, columnsPerTable));
+  }, [database]);
+
+  useEffect(() => {
+    reloadAnalyzer();
+  }, [database, reloadAnalyzer]);
 
 
   useEffect(() => {
