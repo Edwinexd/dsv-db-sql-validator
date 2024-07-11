@@ -260,6 +260,16 @@ class UselessDistinctIssue extends Issue {
     }
 }
 
+class NullFilteredOuterJoinIssue extends Issue {
+    constructor(public column: string, public table: string, public joinType: 'LEFT' | 'RIGHT') {
+        super('NULL_FILTERED_OUTER_JOIN', IssueSeverity.WARNING);
+    }
+
+    toString() {
+        return `Null filtering on column ${this.column} in OUTER ${this.joinType} JOIN with table ${this.table}`;
+    }
+}
+
 type ASTFunction<T extends any[]> = (node: AST, ...args: T) => void;
 
 export class SQLAnalyzer {
@@ -341,6 +351,29 @@ export class SQLAnalyzer {
         });
 
         return requiredJoins;
+    }
+
+    extractNullFilters(whereClause: Expr | Function, tableAliasMapping: Record<string, string>) {
+        const nullFilters: { table: string, column: string, joinType: 'LEFT' | 'RIGHT' }[] = [];
+
+        if (whereClause.type === 'binary_expr' && whereClause.operator === 'IS' && whereClause.right.type === 'null') {
+            if (whereClause.left.type === 'column_ref') {
+                const column = whereClause.left as ColumnRef;
+                const table = column.table ? tableAliasMapping[column.table] || column.table : null;
+                if (table) {
+                    nullFilters.push({
+                        table,
+                        column: column.column as string,
+                        joinType: 'LEFT'
+                    });
+                }
+            }
+        } else if (whereClause.type === 'binary_expr' && whereClause.operator === 'AND') {
+            nullFilters.push(...this.extractNullFilters(whereClause.left as Expr | Function, tableAliasMapping));
+            nullFilters.push(...this.extractNullFilters(whereClause.right as Expr | Function, tableAliasMapping));
+        }
+
+        return nullFilters;
     }
 
     private findIncompleteJoins(node: AST, tableAliasMapping: Record<string, string>, issues: IncompleteJoinIssue[]): IncompleteJoinIssue[] {
@@ -551,6 +584,66 @@ export class SQLAnalyzer {
         return issues;
     }
 
+    private findNullFilteredOuterJoin(node: AST, tableAliasMapping: Record<string, string>, issues: NullFilteredOuterJoinIssue[]): NullFilteredOuterJoinIssue[] {
+        let nextAliasMapping = { ...tableAliasMapping };
+        // Find outer joins
+        // for left joins, note which columns are used in the join condition for the right table
+        // if any of those columns have a IS NULL condition or in the WHERE claus, warn.
+        // for right joins, note which columns are used in the join condition for the left table
+        // if any of those columns have a IS NULL condition there or in the WHERE claus, warn.
+        if (node.type === 'select') {
+            const fromClause = node.from;
+            const whereClause = node.where;
+
+            if (fromClause) {
+                const localTableAliasMapping = this.extractTableAliasMapping(fromClause);
+                const combinedTableAliasMapping = { ...tableAliasMapping, ...localTableAliasMapping };
+                nextAliasMapping = { ...combinedTableAliasMapping}
+                const tables = Object.values(combinedTableAliasMapping);
+
+                fromClause.forEach(part => {
+                    if ("join" in part) {
+                        const join = part as Join;
+                        if (join.join === 'INNER JOIN') {
+                            return;
+                        }
+                        if (!join.on) {
+                            // Other join without ON clause is not supported
+                            return;
+                        }
+                        const joinConditions = this.extractJoinConditions(join.on, combinedTableAliasMapping);
+                        // Solve null condition.tables with the alias mapping
+                        joinConditions.forEach(condition => {
+                            if (!condition[0].table) {
+                                const table = tables.find(t => this.columnsPerTable.find(cpt => cpt.table === t && cpt.columns.includes(condition[0].column)));
+                                if (table) {
+                                    condition[0].table = table;
+                                }
+                            }
+                            if (!condition[1].table) {
+                                const table = tables.find(t => this.columnsPerTable.find(cpt => cpt.table === t && cpt.columns.includes(condition[1].column)));
+                                if (table) {
+                                    condition[1].table = table;
+                                }
+                            }
+                        });
+
+                        let nullFilters = whereClause ? this.extractNullFilters(whereClause, combinedTableAliasMapping) : [];
+                        nullFilters = nullFilters.concat(this.extractNullFilters(join.on, combinedTableAliasMapping));
+
+                        console.log(nullFilters);
+                    }
+                }
+                );
+            }
+        }
+
+        // Recursively search in child nodes
+        this.traverseAst(node, this.findNullFilteredOuterJoin, nextAliasMapping, issues);
+        
+        return issues;
+    }
+
     analyze(sql: string): Issue[] {
         let asts: AST[];
         try {
@@ -558,7 +651,6 @@ export class SQLAnalyzer {
             query = sql.replace(/OUTER\s+(LEFT|RIGHT)\s+JOIN/gi, "$1 JOIN");
             // this parser does not support å ä ö on anyting so we replace it before parsing
             query = query.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
-            // TODO Move this...
             // same replacements on all tables columns and join rules
             this.columnsPerTable.forEach(cpt => {
                 cpt.table = cpt.table.replace(/å/g, 'a').replace(/ä/g, 'a').replace(/ö/g, 'o');
@@ -575,6 +667,7 @@ export class SQLAnalyzer {
             asts = Array.isArray(partialAsts) ? partialAsts : [partialAsts];
         } catch (e) {
             if (e instanceof Error && "name" in e && e.name === "SyntaxError") {
+                console.error(e);
                 return [new AnalyzerIssue("Unsupported Query Type")];
             }
             console.error(e);
@@ -597,6 +690,8 @@ export class SQLAnalyzer {
                 // Not sure how to describe this in a meaningful way without causing confusion / Edwin 2024-06-25
 
                 // TODO: Outer joins with null filtering should be a inner join instead
+                issues.push(...this.findNullFilteredOuterJoin(ast, {}, []));
+
             }
             return issues.sort((a, b) => {
                 if (a.getSeverity() === b.getSeverity()) {
