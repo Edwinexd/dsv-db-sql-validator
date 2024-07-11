@@ -14,6 +14,17 @@ const cyrb53 = (str: string, seed = 0) => {
     return 4294967296 * (2097151 & h2) + (h1 >>> 0) // % 2**16;
 };
 
+class MatchesResult {
+    matches: number[][] = [];
+    constructor(matches: number[][]) {
+        this.matches = matches;
+    }
+
+    isAny() {
+        return this.matches.length > 0;
+    }
+}
+
 class HashedRow {
     private values: (number | string | Uint8Array | null)[] = [];
     private hash: bigint;
@@ -37,38 +48,16 @@ class HashedRow {
         }
     }
 
-    equals(other: HashedRow) {
-        if (this.values.length !== other.values.length) {
-            return false;
-        }
-
-        if (this.hash !== other.hash) {
-            return false;
-        }
-
-        // Try match all values in this set to the other set
-        return this.backtrackCompare(0, new Array<boolean>(other.values.length).fill(false), other.values);
-    }
-
-    private backtrackCompare(index: number, used: boolean[], otherValues: (number | string | Uint8Array | null)[]): boolean {
-        if (index === this.values.length) {
-            return true;
-        }
-
-        for (let i = 0; i < otherValues.length; i++) {
-            if (!used[i] && this.valueEquals(this.values[index], otherValues[i])) {
-                used[i] = true;
-                if (this.backtrackCompare(index + 1, used, otherValues)) {
-                    return true;
-                }
-                used[i] = false;
-            }
-        }
-
-        return false;
+    getHash() {
+        return this.hash;
     }
 
     private valueEquals(value1: number | string | Uint8Array | null, value2: number | string | Uint8Array | null): boolean {
+        // TODO: Passing the entire row to this function would be better as the calculated hashes could be used
+        if (typeof value1 !== typeof value2) {
+            return false;
+        }
+
         if (value1 === value2) {
             return true;
         }
@@ -88,8 +77,111 @@ class HashedRow {
         return false;
     }
 
-    getHash() {
-        return this.hash;
+    private equalsWithOrder(other: HashedRow, mapping: number[]): boolean {
+        for (let i = 0; i < this.values.length; i++) {
+            if (!this.valueEquals(this.values[i], other.values[mapping[i]])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 
+     * @param index which value to match next
+     * @param used which values (indexes from otherValues) have been used where
+     * @param otherValues the values we are trying to match
+     * @returns the mappings of which the the values in the input row have to be ordered to match this row
+     * e.x. [[1, 0, 2]] means that the first value in the input row has to be matched with the second value in this row,
+     * the second value in the input row has to be matched with the first value in this row
+     * and the third value in the input row has to be matched with the third value in this row
+     */
+    private backtrackingMatches(index: number, used: number[], otherValues: (number | string | Uint8Array | null)[]): number[][] {
+        if (index === this.values.length) {
+            // Copy of array as backtracking upwards pops and hence  modifies the array
+            return [used.concat()];
+        }
+
+        const mappings: number[][] = [];
+        for (let i = 0; i < otherValues.length; i++) {
+            if (used.includes(i)) {
+                // Value can only be used once
+                continue;
+            }
+
+            if (this.valueEquals(this.values[index], otherValues[i])) {
+                used.push(i);
+                mappings.push(...this.backtrackingMatches(index + 1, used, otherValues));
+                used.pop();
+            }
+        }
+        return mappings;
+    }
+
+    /**
+     * 
+     * @param other the row to match against
+     * @param mappings which mappings to attempt, otherwise all mappings are attempted via an backtracking algorithm
+     * @returns the mappings of which the the values in the input row have to be ordered to match this row
+     */
+    matches(other: HashedRow, mappings: number[][] | null = null): MatchesResult {
+        if (this.values.length !== other.values.length) {
+            return new MatchesResult([]);
+        }
+
+        if (this.hash !== other.hash) {
+            return new MatchesResult([]);
+        }
+
+        if (mappings === null) {
+            // Use backtracking to find all possible mappings
+            return new MatchesResult(this.backtrackingMatches(0, [], other.values));
+        }
+
+        return new MatchesResult(mappings.filter(mapping => this.equalsWithOrder(other, mapping)));
+    }
+
+    /**
+     * @deprecated Use matches instead
+     * @param other 
+     * @returns 
+     */
+    equals(other: HashedRow) {
+        if (this.values.length !== other.values.length) {
+            return false;
+        }
+
+        if (this.hash !== other.hash) {
+            return false;
+        }
+
+        // Try match all values in this set to the other set
+        return this.backtrackCompare(0, new Array<boolean>(other.values.length).fill(false), other.values);
+    }
+
+    /**
+     * @deprecated Use matches instead
+     * @param index 
+     * @param used 
+     * @param otherValues 
+     * @returns 
+     */
+    private backtrackCompare(index: number, used: boolean[], otherValues: (number | string | Uint8Array | null)[]): boolean {
+        if (index === this.values.length) {
+            return true;
+        }
+
+        for (let i = 0; i < otherValues.length; i++) {
+            if (!used[i] && this.valueEquals(this.values[index], otherValues[i])) {
+                used[i] = true;
+                if (this.backtrackCompare(index + 1, used, otherValues)) {
+                    return true;
+                }
+                used[i] = false;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -106,19 +198,33 @@ class RowHashSet {
         bucket.push(row);
     }
 
-    remove(row: HashedRow) {
+    remove(row: HashedRow, mappings: number[][] | null = null): MatchesResult {
         const bucket = this.getBucket(row);
-        const index = bucket.findIndex(r => r.equals(row));
+        let index = -1;
+        let workingMappings: number[][] = [];
+        for (let i = 0; i < bucket.length; i++) {
+            const match = bucket[i].matches(row, mappings);
+            if (match.isAny()) {
+                index = i;
+                workingMappings = match.matches;
+                break;
+            }
+        }
         if (index !== -1) {
             bucket.splice(index, 1);
-            return true;
         }
-        return false;
+        return new MatchesResult(workingMappings);
     }
 
-    contains(row: HashedRow) {
+    contains(row: HashedRow, mappings: number[][] | null = null): MatchesResult {
         const bucket = this.getBucket(row);
-        return bucket.some(r => r.equals(row));
+        for (let i = 0; i < bucket.length; i++) {
+            const match = bucket[i].matches(row, mappings);
+            if (match.isAny()) {
+                return new MatchesResult(match.matches);
+            }
+        }
+        return new MatchesResult([]);
     }
 
     private getBucket(row: HashedRow): HashedRow[] {
@@ -157,10 +263,13 @@ export function isCorrectResult(expected: Result, actual: Result) {
         actualRowsSet.add(row);
     }
 
+    let mappings = null;
     for (const row of expectedRows) {
-        if (!actualRowsSet.remove(row)) {
+        const matches = actualRowsSet.remove(row, mappings);
+        if (!matches.isAny()) {
             return false;
         }
+        mappings = matches.matches;
     }
 
     return actualRowsSet.isEmpty();
