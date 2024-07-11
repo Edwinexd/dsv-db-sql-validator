@@ -25,49 +25,47 @@ class MatchesResult {
     }
 }
 
-class HashedRow {
-    private values: (number | string | Uint8Array | null)[] = [];
-    private hash: bigint;
+class HashedValue {
+    private value: number | string | Uint8Array | null;
+    private hashCache?: bigint;
 
-    constructor(data: (number | string | Uint8Array | null)[]) {
-        this.values = data;
-
-        this.hash = BigInt(17);
-        for (let i = 0; i < data.length; i++) {
-            if (typeof data[i] === 'string') {
-                this.hash += BigInt(cyrb53(data[i] as string));
-            } else if (typeof data[i] === 'number') {
-                this.hash +=  BigInt(data[i] as number);
-            } else if (data[i] === null) {
-                this.hash += BigInt(17);
-            } else {
-                for (let j = 0; j < (data[i] as Uint8Array).length; j++) {
-                    this.hash += BigInt((data[i] as Uint8Array)[j]);
-                }
-            }
-        }
+    constructor(value: number | string | Uint8Array | null) {
+        this.value = value;
     }
 
     getHash() {
-        return this.hash;
+        if (this.hashCache === undefined) {
+            if (typeof this.value === 'string') {
+                this.hashCache = BigInt(cyrb53(this.value));
+            } else if (typeof this.value === 'number') {
+                this.hashCache = BigInt(this.value);
+            } else if (this.value === null) {
+                this.hashCache = BigInt(17);
+            } else {
+                this.hashCache = BigInt(17);
+                for (let i = 0; i < this.value.length; i++) {
+                    this.hashCache += BigInt(this.value[i]);
+                }
+            }
+        }
+        return this.hashCache;
     }
 
-    private valueEquals(value1: number | string | Uint8Array | null, value2: number | string | Uint8Array | null): boolean {
-        // TODO: Passing the entire row to this function would be better as the calculated hashes could be used
-        if (typeof value1 !== typeof value2) {
+    equals(other: HashedValue): boolean {
+        if (typeof this.value !== typeof other.value || this.getHash() !== other.getHash()) {
             return false;
         }
 
-        if (value1 === value2) {
+        if (this.value === other.value) {
             return true;
         }
 
-        if (value1 instanceof Uint8Array && value2 instanceof Uint8Array) {
-            if (value1.length !== value2.length) {
+        if (this.value instanceof Uint8Array && other.value instanceof Uint8Array) {
+            if (this.value.length !== other.value.length) {
                 return false;
             }
-            for (let i = 0; i < value1.length; i++) {
-                if (value1[i] !== value2[i]) {
+            for (let i = 0; i < this.value.length; i++) {
+                if (this.value[i] !== other.value[i]) {
                     return false;
                 }
             }
@@ -76,10 +74,35 @@ class HashedRow {
 
         return false;
     }
+}
 
+class HashedRow {
+    private values: HashedValue[] = [];
+    private hashCache?: bigint;
+
+    constructor(data: (number | string | Uint8Array | null)[]) {
+        this.values = data.map(value => new HashedValue(value));
+    }
+
+    getHash() {
+        if (this.hashCache === undefined) {
+            this.hashCache = BigInt(17);
+            for (const value of this.values) {
+                this.hashCache += value.getHash();
+            }
+        }
+        return this.hashCache;
+    }
+
+    /**
+     * Assumes hash is equal of the two rows and that they have the same amount of values
+     * @param other 
+     * @param mapping 
+     * @returns 
+     */
     private equalsWithOrder(other: HashedRow, mapping: number[]): boolean {
         for (let i = 0; i < this.values.length; i++) {
-            if (!this.valueEquals(this.values[i], other.values[mapping[i]])) {
+            if (!this.values[i].equals(other.values[mapping[i]])) {
                 return false;
             }
         }
@@ -96,9 +119,9 @@ class HashedRow {
      * the second value in the input row has to be matched with the first value in this row
      * and the third value in the input row has to be matched with the third value in this row
      */
-    private backtrackingMatches(index: number, used: number[], otherValues: (number | string | Uint8Array | null)[]): number[][] {
+    private backtrackingMatches(index: number, used: number[], otherValues: HashedValue[]): number[][] {
         if (index === this.values.length) {
-            // Copy of array as backtracking upwards pops and hence  modifies the array
+            // Copy of array as backtracking upwards pops and hence modifies the array
             return [used.concat()];
         }
 
@@ -108,8 +131,7 @@ class HashedRow {
                 // Value can only be used once
                 continue;
             }
-
-            if (this.valueEquals(this.values[index], otherValues[i])) {
+            if (this.values[index].equals(otherValues[i])) {
                 used.push(i);
                 mappings.push(...this.backtrackingMatches(index + 1, used, otherValues));
                 used.pop();
@@ -125,11 +147,7 @@ class HashedRow {
      * @returns the mappings of which the the values in the input row have to be ordered to match this row
      */
     matches(other: HashedRow, mappings: number[][] | null = null): MatchesResult {
-        if (this.values.length !== other.values.length) {
-            return new MatchesResult([]);
-        }
-
-        if (this.hash !== other.hash) {
+        if (this.values.length !== other.values.length || this.getHash() !== other.getHash()) {
             return new MatchesResult([]);
         }
 
@@ -147,11 +165,7 @@ class HashedRow {
      * @returns 
      */
     equals(other: HashedRow) {
-        if (this.values.length !== other.values.length) {
-            return false;
-        }
-
-        if (this.hash !== other.hash) {
+        if (this.values.length !== other.values.length || this.getHash() !== other.getHash()) {
             return false;
         }
 
@@ -166,13 +180,13 @@ class HashedRow {
      * @param otherValues 
      * @returns 
      */
-    private backtrackCompare(index: number, used: boolean[], otherValues: (number | string | Uint8Array | null)[]): boolean {
+    private backtrackCompare(index: number, used: boolean[], otherValues: HashedValue[]): boolean {
         if (index === this.values.length) {
             return true;
         }
 
         for (let i = 0; i < otherValues.length; i++) {
-            if (!used[i] && this.valueEquals(this.values[index], otherValues[i])) {
+            if (!used[i] && this.values[index].equals(otherValues[i])) {
                 used[i] = true;
                 if (this.backtrackCompare(index + 1, used, otherValues)) {
                     return true;
@@ -257,6 +271,7 @@ export function isCorrectResult(expected: Result, actual: Result) {
     const actualRows = actual.data.map(row => new HashedRow(row));
 
     // put actualRows in hashset for fast removal
+    // in this case it dosn't matter which set is made into a hashset as both are guaranteed to have the same amount of rows
     const actualRowsSet = new RowHashSet(actualRows.length);
 
     for (const row of actualRows) {
