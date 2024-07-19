@@ -15,10 +15,12 @@ interface View {
 
 interface ViewsTableProps {
     views: View[];
+    currentlyQuriedView: string | null;
     onRemoveView: (name: string) => void;
+    onViewResultRequest(name: string): void;
 }
 
-const ViewsTable: React.FC<ViewsTableProps> = ({ views, onRemoveView }) => {
+const ViewsTable: React.FC<ViewsTableProps> = ({ views, currentlyQuriedView, onRemoveView, onViewResultRequest }) => {
     return (
         <>
             <h2 className='text-3xl font-semibold mb-3.5'>Views</h2>
@@ -27,6 +29,7 @@ const ViewsTable: React.FC<ViewsTableProps> = ({ views, onRemoveView }) => {
                     <tr>
                         <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Name</th>
                         <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Query</th>
+                        <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Result</th>
                         <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Delete</th>
                     </tr>
                 </thead>
@@ -37,8 +40,22 @@ const ViewsTable: React.FC<ViewsTableProps> = ({ views, onRemoveView }) => {
                             <td className="border dark:border-slate-600 px-4 py-2">
                                 <HideableEditor query={view.query} />
                             </td>
+                            <td className="border dark:border-slate-600 px-4 py-2">
+                                {currentlyQuriedView === view.name ? (
+                                    <button className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 my-4 rounded' disabled={true}>
+                                        Displayed Below
+                                    </button>
+                                ) : (
+                                    <button className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded' onClick={() => {
+                                        onViewResultRequest(view.name);
+                                    }}>Query</button>
+                                )}
+                                {/* <button className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded w-24' onClick={() => {
+                                    onViewResultRequest(view.name);
+                                }}>Query</button> */}
+                            </td>
                             <td className="border dark:border-slate-600 px-4 py</td>-2">
-                                <button className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded w-24' onClick={() => {
+                                <button className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded' onClick={() => {
                                     onRemoveView(view.name);
                                 }}>Delete</button>
                             </td>
@@ -73,7 +90,7 @@ const HideableEditor: React.FC<{ query: string }> = ({ query }) => {
                 />
             )}
             <button
-                className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded w-24'
+                className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded'
                 onClick={() => setIsVisible(!isVisible)}
             >
                 {isVisible ? 'Hide' : 'Show'}

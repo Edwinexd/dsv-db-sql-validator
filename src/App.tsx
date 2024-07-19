@@ -51,13 +51,20 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || "SELECT * FROM student;");
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
+  const [isViewResult, setIsViewResult] = useState<boolean>(false);
+  const [queryedView, setQueryedView] = useState<string | null>(null);
   const [views, setViews] = useState<View[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const { setTheme, isDarkMode } = useTheme();
   
-  
-  const initDb = useCallback(async () => {
+  const resetResult = useCallback(() => {
     setResult(null);
+    setIsViewResult(false);
+    setQueryedView(null);
+  }, []);
+
+  const initDb = useCallback(async () => {
+    resetResult();
     const sqlPromise = initSqlJs(
       {
         locateFile: (file) => `/dist/sql.js/${file}`,
@@ -70,7 +77,7 @@ function App() {
     db.create_function('MONTH', (date: string) => new Date(date).getMonth() + 1);
     db.create_function('DAY', (date: string) => new Date(date).getDate());
     setDatabase(db);
-  }, []);
+  }, [resetResult]);
 
   useEffect(() => {
     initDb();
@@ -144,6 +151,8 @@ function App() {
     }
     try {
       const res = database.exec(query);
+      setIsViewResult(false);
+      setQueryedView(null);
       if (res.length !== 0) {
         const { columns, values } = res[0];
         setResult({ columns, data: values });
@@ -156,6 +165,26 @@ function App() {
       setError(e.message);
     }
   }, [database, query, refreshViews]);
+
+  const getViewResult = useCallback((name: string) => {
+    if (!database) {
+      return;
+    }
+    try {
+      const res = database.exec(`SELECT * FROM ${name}`);    
+      setIsViewResult(true);
+      setQueryedView(name);
+      if (res.length !== 0) {
+        const { columns, values } = res[0];
+        setResult({ columns, data: values });
+      } else {
+        setResult({columns: [], data: []});
+      }
+    } catch (e) {
+      // @ts-ignore
+      setError(e.message);
+    }
+  }, [database]);
 
   const deleteView = useCallback((name: string) => {
     if (!database) {
@@ -389,7 +418,7 @@ function App() {
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className='text-6xl font-semibold my-3'>DB SQL Validator</h1>
         <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
-        <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); setResult(null); setQuestion(selectedQuestion)}}></QuestionSelector>
+        <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
         <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
         <Editor
           value={query}
@@ -414,7 +443,7 @@ function App() {
         }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 ptext-white text-xl font-semibold y-2 px-4 my-3.5 rounded mr-3 w-40' type='submit'>Format Code</button>
         </div>
         
-        <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} />
+        <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} onViewResultRequest={(name) => {getViewResult(name); }} currentlyQuriedView={queryedView}></ViewsTable>
         <div className='flex text-base'>
           <button onClick={() => {
             if (window.confirm('Are you sure you want to reset the database?\n\nNote: This will not reset your written answers.')) {
@@ -427,27 +456,35 @@ function App() {
         
 
         {result && <>
-          {/* if correct result else display wrong result */}
-          {isCorrect ? <>
-            <h2 className="text-3xl font-semibold text-green-500">Matching Result!</h2>
-            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
-            </> : <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
-          }
-          {/* Two different result tables next to each other, actual and expected */}
-          <div className="flex max-w-full py-4 justify-center">
-            <div className="flex-initial px-2 overflow-x-auto">
-              <h2 className="text-3xl font-semibold py-2">Actual</h2>
-              <div className="overflow-x-auto max-w-full">
-                <ResultTable columns={result.columns} data={result.data} />
+          {!isViewResult ? <>
+            {/* if correct result else display wrong result */}
+            {isCorrect ? <>
+              <h2 className="text-3xl font-semibold text-green-500">Matching Result!</h2>
+              <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
+              </> : <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
+            }
+            {/* Two different result tables next to each other, actual and expected */}
+            <div className="flex max-w-full py-4 justify-center">
+              <div className="flex-initial px-2 overflow-x-auto">
+                <h2 className="text-3xl font-semibold py-2">Actual</h2>
+                <div className="overflow-x-auto max-w-full">
+                  <ResultTable columns={result.columns} data={result.data} />
+                </div>
+              </div>
+              <div className="flex-initial px-2 overflow-x-auto">
+                <h2 className="text-3xl font-semibold py-2">Expected</h2>
+                <div className="overflow-x-auto max-w-full">
+                  <ResultTable columns={question.result.columns} data={question.result.values} />
+                </div>
               </div>
             </div>
-            <div className="flex-initial px-2 overflow-x-auto">
-              <h2 className="text-3xl font-semibold py-2">Expected</h2>
-              <div className="overflow-x-auto max-w-full">
-                <ResultTable columns={question.result.columns} data={question.result.values} />
-              </div>
+          </> : <>
+            <h2 className="text-3xl font-semibold">Result of {queryedView}</h2>
+            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the result of querying the view {queryedView} with SELECT * FROM {queryedView};</p>
+            <div className="overflow-x-auto max-w-full">
+              <ResultTable columns={result.columns} data={result.data} />
             </div>
-          </div>
+          </>}
         </>}
         <footer className="text-lg py-4 my-3">
           <div className="container mx-auto flex justify-between items-center space-x-8">
