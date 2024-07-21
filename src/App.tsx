@@ -76,6 +76,7 @@ function App() {
     db.create_function('YEAR', (date: string) => new Date(date).getFullYear());
     db.create_function('MONTH', (date: string) => new Date(date).getMonth() + 1);
     db.create_function('DAY', (date: string) => new Date(date).getDate());
+    db.exec('PRAGMA foreign_keys = ON;');
     setDatabase(db);
   }, [resetResult]);
 
