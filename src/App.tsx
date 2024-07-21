@@ -268,6 +268,7 @@ function App() {
     const queries = localStorage.getItem('correctQuestions');
     if (queries) {
       const parsed = JSON.parse(queries);
+      parsed.sort();
       const questionQueries = parsed.map((id: number) => {
         const category = questions.find(c => c.questions.some(q => q.id === id))!;
         const question = category.questions.find(q => q.id === id)!;
