@@ -45,11 +45,13 @@ interface View {
   query: string;
 }
 
+const DEFAULT_QUERY = "SELECT * FROM student;";
+
 function App() {
   const [question, setQuestion] = useState<Question>(questions[0].questions[0]);
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || "SELECT * FROM student;");
+  const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || DEFAULT_QUERY);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
   const [isViewResult, setIsViewResult] = useState<boolean>(false);
   const [queryedView, setQueryedView] = useState<string | null>(null);
@@ -88,16 +90,29 @@ function App() {
     if (!database) {
       return;
     }
-    localStorage.setItem('questionId-' + question.id, query);
-    // ensure that questionid is in localstorage writtenQuestions
-    const writtenQuestions = localStorage.getItem('writtenQuestions');
-    if (!writtenQuestions) {
-      localStorage.setItem('writtenQuestions', JSON.stringify([question.id]));
+    if (query !== DEFAULT_QUERY) {
+      localStorage.setItem('questionId-' + question.id, query);
+      // ensure that questionid is in localstorage writtenQuestions
+      const writtenQuestions = localStorage.getItem('writtenQuestions');
+      if (!writtenQuestions) {
+        localStorage.setItem('writtenQuestions', JSON.stringify([question.id]));
+      } else {
+        const parsed = JSON.parse(writtenQuestions);
+        if (!parsed.includes(question.id)) {
+          parsed.push(question.id);
+          localStorage.setItem('writtenQuestions', JSON.stringify(parsed));
+        }
+      }
     } else {
-      const parsed = JSON.parse(writtenQuestions);
-      if (!parsed.includes(question.id)) {
-        parsed.push(question.id);
-        localStorage.setItem('writtenQuestions', JSON.stringify(parsed));
+      localStorage.removeItem('questionId-' + question.id);
+      // remove from writtenQuestions if it exists there as well
+      const writtenQuestions = localStorage.getItem('writtenQuestions');
+      if (writtenQuestions) {
+        const parsed = JSON.parse(writtenQuestions);
+        const filtered = parsed.filter((id: number) => id !== question.id);
+        if (filtered.length !== parsed.length) {
+          localStorage.setItem('writtenQuestions', JSON.stringify(filtered));
+        }
       }
     }
     try {
@@ -223,7 +238,7 @@ function App() {
 
   // Save query based on question
   const loadQuery = useCallback((oldQuestion: Question, newQuestion: Question) => {
-    setQuery(localStorage.getItem('questionId-' + newQuestion.id) || "SELECT * FROM student;");
+    setQuery(localStorage.getItem('questionId-' + newQuestion.id) || DEFAULT_QUERY);
   }, [setQuery]);
 
   const exportData = useCallback(() => {
@@ -293,7 +308,17 @@ function App() {
       output += '\n';
     }
     output += '/* --- END Submission Queries --- */\n';
-
+    
+    output += '/* --- BEGIN Save Summary --- */\n';
+    const existingQueries = localStorage.getItem('writtenQuestions') || '[]';
+    const existingParsed = JSON.parse(existingQueries);
+    const existingQuestions = existingParsed.map((id: number) => {
+      const category = questions.find(c => c.questions.some(q => q.id === id))!;
+      const question = category.questions.find(q => q.id === id)!;
+      return `${category.display_number}${question.display_sequence}`;
+    }).sort().join(', ');
+    output += `-- Written Questions: ${existingQuestions}\n`;
+    output += '/* --- END Save Summary --- */\n';
     output += '/* --- BEGIN Raw Queries --- */\n';
     output += '/*\n'
     const allQueries = localStorage.getItem('writtenQuestions');
@@ -326,8 +351,15 @@ function App() {
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement('a');
+    const now = new Date();
+    const formattedTimestamp = `${now.getFullYear()}${(now.getMonth() + 1)
+    .toString()
+    .padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now
+      .getHours()
+      .toString()
+      .padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
     a.href = url;
-    a.download = "export.sql";
+    a.download = `validator_${formattedTimestamp}.sql`;;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -412,6 +444,17 @@ function App() {
     input.click();
   }, [upsertData]);
 
+  // Overriding default behavior for ctrl+s to call exportData instead
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        exportData();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [exportData]);
 
   return (
     <div className="App">
