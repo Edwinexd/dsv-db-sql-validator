@@ -595,7 +595,7 @@ function App() {
             setQuery(localStorage.getItem(`correctQuestionId-${question.id}`) || DEFAULT_QUERY);
           }} 
             disabled={!correctQueryMismatch}
-          className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-300 text-white text-xl font-semibold py-2 px-4 my-3.5 rounded mr-3 w-40' type='submit'>Load Saved</button>
+          className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 my-3.5 rounded mr-3 w-40' type='submit'>Load Saved</button>
         </div>
         
         <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} onViewResultRequest={(name) => {getViewResult(name); }} currentlyQuriedView={queryedView}></ViewsTable>
