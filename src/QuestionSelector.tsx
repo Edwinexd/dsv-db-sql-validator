@@ -44,7 +44,7 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect }) => {
 
           }
         }} className='text-black mr-3.5 ml-2.0' />
-      Subtype: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
+      Variant: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
         if (e) {
           setSequence(e.value);
           onSelect(questions.find(q => q.category_id === category)?.questions.find(q => q.display_sequence === e.value)!);
