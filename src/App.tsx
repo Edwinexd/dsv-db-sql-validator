@@ -57,6 +57,7 @@ function App() {
   const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || DEFAULT_QUERY);
   const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
   const [evaluatedQuery, setEvaluatedQuery] = useState<string | null>(null);
+  const [showViewsTable, setDisplayViewsTable] = useState<boolean>(false);
   const [isViewResult, setIsViewResult] = useState<boolean>(false);
   const [queryedView, setQueryedView] = useState<string | null>(null);
   const [views, setViews] = useState<View[]>([]);
@@ -144,6 +145,13 @@ function App() {
       fetchedViews = fetched.map(([name, query]) => ({ name, query }));
     }
 
+    if (fetchedViews.length - views.length !== 0) {
+      // Force display views table if the amount of views has changed
+      // TODO: We may just be able to return with this check, but unsure due import data handling.
+      setDisplayViewsTable(true);
+    }
+
+
     if (upsert) {
       localStorage.setItem('views', JSON.stringify(fetchedViews));
     }
@@ -164,7 +172,7 @@ function App() {
         refreshViews(false); // Refresh views again to update the state after recreating missing views
       }
     }
-  }, [database]);
+  }, [database, views.length]);
 
   const runQuery = useCallback(() => {
     if (!database) {
@@ -557,7 +565,7 @@ function App() {
         <div className='my-2'></div>
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className='text-6xl font-semibold my-3'>DB SQL Validator</h1>
-        <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
+        <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout w-full max-w-xl" alt="Database Layout" />
         <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
         <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
         <Editor
@@ -580,8 +588,8 @@ function App() {
               </span>
           </p>
         }
-        <div className='flex text-white font-semibold text-base '>
-          <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 my-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
+        <div className='flex flex-wrap justify-center text-base max-w-xl'>
+          <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
           <button onClick={() => {
           setQuery(format(query, {
             language: 'sqlite',
@@ -590,24 +598,44 @@ function App() {
             keywordCase: 'upper',
             dataTypeCase: 'upper',
             functionCase: 'upper',
-        }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 ptext-white text-xl font-semibold y-2 px-4 my-3.5 rounded mr-3 w-40' type='submit'>Format Code</button>
+        }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Format Code</button>
           <button onClick={() => {
             setQuery(localStorage.getItem(`correctQuestionId-${question.id}`) || DEFAULT_QUERY);
           }} 
             disabled={!correctQueryMismatch}
-          className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 my-3.5 rounded mr-3 w-40' type='submit'>Load Saved</button>
-        </div>
-        
-        <ViewsTable views={views} onRemoveView={(name) => deleteView(name)} onViewResultRequest={(name) => {getViewResult(name); }} currentlyQuriedView={queryedView}></ViewsTable>
-        <div className='flex text-base'>
+          className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Load Saved</button>
           <button onClick={() => {
             if (window.confirm('Are you sure you want to reset the database?\n\nNote: This will not reset your written answers.')) {
               initDb();
             }
-            }} className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40' type='submit'>Reset DB</button>
-          <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40' type='submit'>Export Data</button>
-          <button onClick={importData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40' type='submit'>Import Data</button>
+            }} className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Reset DB</button>
+          <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Export Data</button>
+          <button onClick={importData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Import Data</button>
         </div>
+
+        <button 
+          onClick={() => {
+            if (showViewsTable && queryedView) {
+              resetResult();
+            }
+            setDisplayViewsTable(!showViewsTable)
+          }} 
+          className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40'
+        >
+          {showViewsTable ? 'Hide Views' : 'Show Views'}
+        </button>
+        {showViewsTable && (
+          <>
+            <ViewsTable 
+              views={views} 
+              onRemoveView={(name) => deleteView(name)} 
+              onViewRequest={(name) => { getViewResult(name); }} 
+              currentlyQuriedView={queryedView}
+              onViewHideRequest={() => resetResult()}
+            />
+            <div className='my-4'></div>
+          </>
+        )}
         
 
         {result && <>
@@ -634,8 +662,29 @@ function App() {
               </div>
             </div>
           </> : <>
-            <h2 className="text-3xl font-semibold">Result of {queryedView}</h2>
-            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the result of querying the view {queryedView} with SELECT * FROM {queryedView};</p>
+            <h2 className="text-3xl font-semibold">View {queryedView}</h2>
+            {/* code for the view */}
+            {/* <h2 className="text-3xl font-semibold">Query for {queryedView}</h2> */}
+            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the query for view {queryedView}.</p>
+            <Editor
+                readOnly={true}
+                value={format(
+                  views.find(view => view.name === queryedView)!.query, {
+                    language: 'sqlite',
+                    tabWidth: 2,
+                    useTabs: false,
+                    keywordCase: 'upper',
+                    dataTypeCase: 'upper',
+                    functionCase: 'upper',
+                })}
+                onValueChange={() => null}
+                highlight={code => highlight(code, languages.sql)}
+                padding={10}
+                tabSize={4}
+                className="font-mono text-xl w-full dark:bg-slate-800 bg-slate-200 border-2 max-w-4xl min-h-40 border-none my-2"
+              />
+            {/* <h2 className="text-3xl font-semibold">Result of {queryedView}</h2> */}
+            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... and this is the result of querying it with SELECT * FROM {queryedView};</p>
             <div className="overflow-x-auto max-w-full">
               <ResultTable columns={result.columns} data={result.data} />
             </div>
