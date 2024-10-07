@@ -34,7 +34,7 @@ import ViewsTable from './ViewsTable';
 
 import sha256 from 'crypto-js/sha256';
 import questions from './questions.json';
-import { isCorrectResult } from './utils';
+import { Issue, IssueSeverity, JoinCondition, SQLAnalyzer, TableColumns, isCorrectResult } from './utils';
 import ThemeToggle from './ThemeToggle';
 import useTheme from './useTheme';
 import { InformationCircleIcon } from '@heroicons/react/24/solid';
@@ -63,6 +63,10 @@ function App() {
   const [views, setViews] = useState<View[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const { setTheme, isDarkMode } = useTheme();
+
+  const [sqlAnalyzer, setSqlAnalyzer] = useState<SQLAnalyzer | null>(null);
+  const [analysisResults, setAnalysisResults] = useState<Issue[] | null>(null);
+  const [displayAnalyzer, setDisplayAnalyzer] = useState<boolean>(true);
   
   const resetResult = useCallback(() => {
     setResult(null);
@@ -125,12 +129,19 @@ function App() {
       const stmt = database.prepare(query);
       // Needs to be called per the documentation
       stmt.free();
-      setError(null);
     } catch (e) {
       // @ts-ignore
       setError(e.message);
+      setAnalysisResults(null);
+      return;
     }
-  }, [database, query, question.id]);
+    setError(null);
+    if (!sqlAnalyzer) {
+      return;
+    }
+    const issues = sqlAnalyzer.analyze(query);
+    setAnalysisResults(issues);
+  }, [database, query, question.id, sqlAnalyzer]);
 
 
   const refreshViews = useCallback((upsert: boolean) => {
@@ -229,6 +240,47 @@ function App() {
   useEffect(() => {
     refreshViews(false);
   }, [database, refreshViews]);
+
+  const reloadAnalyzer = useCallback(() => {
+    if (!database) {
+      return;
+    }
+    // Select all tables and columns from the database
+    const names = database.exec('SELECT name FROM sqlite_master WHERE type="table"');
+    if (names.length === 0) {
+      return;
+    }
+    const tables = (names[0].values as string[][]).map(([name]) => name);
+    const columnsPerTable: TableColumns[] = tables.map((table) => {
+      const columns = database.exec(`PRAGMA table_info(${table})`);
+      const columnNames = columns[0].values.map(([_, name]) => name);
+      return { table: table.toLowerCase(), columns: columnNames.map((name) => (name as string).toLowerCase()) };
+    });
+
+    // Look at foreign keys to determine and build join rules
+    const joinRules: JoinCondition[] = [];
+    for (const table of tables) {
+      const foreignKeys = database.exec(`PRAGMA foreign_key_list(${table})`);
+      if (foreignKeys.length === 0) {
+        continue;
+      }
+      // Technically incorrect typing but the columns we are interested in are strings
+      for (const key of foreignKeys[0].values as string[][]) {
+        joinRules.push({
+          table1: table.toLowerCase(),
+          column1: key[3], // "our" column
+          table2: key[2].toLowerCase(), // table 
+          column2: key[4], // "their" column
+        });
+      }
+    }
+
+    setSqlAnalyzer(new SQLAnalyzer(joinRules, columnsPerTable));
+  }, [database]);
+
+  useEffect(() => {
+    reloadAnalyzer();
+  }, [database, reloadAnalyzer]);
 
 
   useEffect(() => {
@@ -578,6 +630,7 @@ function App() {
         />
         
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
+
         {correctQueryMismatch &&
             <p className='font-mono text-yellow-500 max-w-4xl break-all'>Query Mismatch! 
               <span
@@ -588,6 +641,26 @@ function App() {
               </span>
           </p>
         }
+        {displayAnalyzer && (
+          <div className="my-4">
+            <h2 className="text-3xl font-semibold mb-3.5">Analyzer Results</h2>
+            <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">The analysis below may not be entirely accurate and should only be used as a guideline.</p>
+            {analysisResults === null && error !== null && <p className="text-xl font-semibold text-red-500">Invalid SQL</p>}
+            {analysisResults !== null && analysisResults.length === 0 && <p className="text-xl font-semibold">No issues found</p>}
+            {analysisResults !== null && analysisResults.map((issue, index) => (
+              <div key={index} className={`my-2 p-2 rounded-md text-white ${issue.getSeverity() === IssueSeverity.ERROR ? "bg-red-500" : "bg-yellow-600"}`}>
+                <p className="font-mono text-xl font-semibold">{issue.toString()}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div>
+          <label className="inline-flex items-center cursor-pointer">
+            <input type="checkbox" value="" className="sr-only peer" checked={displayAnalyzer} onChange={() => setDisplayAnalyzer(!displayAnalyzer)} />
+            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span className="ml-1 text-xl font-semibold">Enable SQL Analysis (Experimental)</span>
+          </label>
+        </div>
         <div className='flex flex-wrap justify-center text-base max-w-xl'>
           <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
           <button onClick={() => {
