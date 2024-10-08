@@ -13,9 +13,10 @@ interface ViewsTableProps {
     onRemoveView: (name: string) => void;
     onViewRequest(name: string): void;
     onViewHideRequest(): void;
+    onViewExportRequest(name: string): void;
 }
 
-const ViewsTable: React.FC<ViewsTableProps> = ({ views, currentlyQuriedView, onRemoveView, onViewRequest, onViewHideRequest }) => {
+const ViewsTable: React.FC<ViewsTableProps> = ({ views, currentlyQuriedView, onRemoveView, onViewRequest, onViewHideRequest, onViewExportRequest }) => {
     return (
         <>
             <h2 className='text-3xl font-semibold mb-3.5'>Views</h2>
@@ -24,6 +25,7 @@ const ViewsTable: React.FC<ViewsTableProps> = ({ views, currentlyQuriedView, onR
                     <tr>
                         <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Name</th>
                         <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Query and Result</th>
+                        <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Export PNG</th>
                         <th className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">Delete</th>
                     </tr>
                 </thead>
@@ -41,6 +43,11 @@ const ViewsTable: React.FC<ViewsTableProps> = ({ views, currentlyQuriedView, onR
                                         onViewRequest(view.name);
                                     }}>Display</button>
                                 )}
+                            </td>
+                            <td className="border dark:border-slate-600 px-4 py-2">
+                                <button className='bg-green-500 hover:bg-green-700 text-white text-xl font-semibold py-2 px-4 my-4 w-full max-w-40 rounded' onClick={() => {
+                                    onViewExportRequest(view.name);
+                                }}>Export</button>
                             </td>
                             <td className="border dark:border-slate-600 px-4 py</td>-2">
                                 <button className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 my-4 w-full max-w-40 rounded' onClick={() => {
