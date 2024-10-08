@@ -23,7 +23,7 @@ import db_scheme_light from './db_scheme_light.png';
 import ResultTable from './ResultTable';
 
 import QuestionSelector, { Question } from './QuestionSelector';
-import ExportView from './ExportView';
+import ExportRenderer from './ExportRenderer';
 
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
@@ -43,7 +43,7 @@ import { toPng } from 'html-to-image';
 
 
 // Representing a view
-interface View {
+export interface View {
   name: string;
   query: string;
 }
@@ -66,11 +66,12 @@ function App() {
   const [isCorrect, setIsCorrect] = useState<boolean>();
   const { getTheme, setTheme, isDarkMode } = useTheme();
   // Exporting functionality / flags
+  const [exportView, setExportView] = useState<View>();
   const [exportQuestion, setExportQuestion] = useState<Question>();
   const [exportQuery, setExportQuery] = useState<string | undefined>();
   const [exportingStatus, setExportingStatus] = useState<number>(0);
   const [loadedQuestionCorrect, setLoadedQuestionCorrect] = useState<boolean>(false);
-  const exportViewRef = useRef<HTMLDivElement>(null);
+  const exportRendererRef = useRef<HTMLDivElement>(null);
 
   const editorRef = useRef<Editor>(null);
   
@@ -606,7 +607,7 @@ function App() {
 
   // Png exports
   const triggerPngExport = useCallback(() => {
-    if (question === undefined || !loadedQuestionCorrect) {
+    if (question === undefined || !loadedQuestionCorrect || exportView) {
       return;
     }
 
@@ -617,21 +618,57 @@ function App() {
 
     setExportQuery(toExportQuery);
     setExportQuestion(question);
-  }, [loadedQuestionCorrect, question]);
+  }, [exportView, loadedQuestionCorrect, question]);
 
-  useEffect(() => {
-    if (!exportViewRef.current || !question || exportingStatus >= 1 || !exportQuery || !exportQuestion) {
+  const pngExportView = useCallback((name: string) => {
+    if (!database || exportQuery) {
       return;
     }
+    const view = views.find(v => v.name === name);
+    if (!view) {
+      return;
+    }
+    setExportView(view);
+  }, [database, exportQuery, views]);
+
+  useEffect(() => {
+    if (!exportRendererRef.current || exportingStatus >= 1) {
+      return;
+    }
+
     // TODO: I'm not really a fan of this solution but without it the browser crashes due to downloading an extreme amount of files
     setExportingStatus(1);
 
-    const exportView = exportViewRef.current;
-    toPng(exportView, { 
-      canvasWidth: exportView.clientWidth,
-      width: exportView.clientWidth,
-      canvasHeight: exportView.clientHeight,
-      height: exportView.clientHeight,
+    // View
+    if (exportView) {
+      toPng(exportRendererRef.current, { 
+        canvasWidth: exportRendererRef.current.clientWidth,
+        width: exportRendererRef.current.clientWidth,
+        canvasHeight: exportRendererRef.current.clientHeight,
+        height: exportRendererRef.current.clientHeight,
+        pixelRatio: 1 
+      }).then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `validator_${exportView.name}.png`;
+        link.href = dataUrl;
+        link.click();
+        setExportView(undefined);
+        setExportingStatus(0);
+      });
+      return;
+    }
+
+    // Question
+    if (!question || !exportQuery || !exportQuestion) {
+      return;
+    }
+
+    const exportRenderer = exportRendererRef.current;
+    toPng(exportRenderer, { 
+      canvasWidth: exportRenderer.clientWidth,
+      width: exportRenderer.clientWidth,
+      canvasHeight: exportRenderer.clientHeight,
+      height: exportRenderer.clientHeight,
       pixelRatio: 1 
     }).then((dataUrl) => {
         const link = document.createElement('a');
@@ -643,11 +680,12 @@ function App() {
         setExportingStatus(0)
       }
     );
-  }, [evaluatedQuery, exportQuery, exportViewRef, getTheme, isDarkMode, exportingStatus, question, resetResult, setTheme, exportQuestion]);
+  }, [evaluatedQuery, exportQuery, exportRendererRef, getTheme, isDarkMode, exportingStatus, question, resetResult, setTheme, exportQuestion, exportView]);
 
   return (
     <div className="App">
-      {exportQuestion && exportQuery && <ExportView isCorrect={isCorrectResult(exportQuestion.evaluable_result, evalSql(exportQuery))} question={exportQuestion} code={exportQuery} result={evalSql(exportQuery)} ref={exportViewRef} />}
+      {exportQuestion && exportQuery && <ExportRenderer query={{isCorrect: isCorrectResult(exportQuestion.evaluable_result, evalSql(exportQuery)), question: exportQuestion, code: exportQuery, result: evalSql(exportQuery)}} ref={exportRendererRef} />}
+      {exportView && <ExportRenderer view={{view: exportView, result: evalSql(`SELECT * FROM ${exportView.name}`)}} ref={exportRendererRef} />}
       <header className="App-header">
         <div className='my-2'></div>
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
@@ -693,7 +731,7 @@ function App() {
           </p>
         }
         <div className='flex flex-wrap justify-center text-base max-w-xl'>
-          <button onClick={runQuery} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
+          <button onClick={runQuery} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
           <button onClick={() => {
             setQuery(format(query === undefined ? '-- Select a question to get started!.' : query, {
               language: 'sqlite',
@@ -702,7 +740,7 @@ function App() {
               keywordCase: 'upper',
               dataTypeCase: 'upper',
               functionCase: 'upper',
-          }))}} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>
+          }))}} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>
             Format Code
           </button>
           <button onClick={() => {
@@ -747,6 +785,7 @@ function App() {
               onViewRequest={(name) => { getViewResult(name); }} 
               currentlyQuriedView={queryedView}
               onViewHideRequest={() => resetResult()}
+              onViewExportRequest={(name) => pngExportView(name)}
             />
             <div className='my-4'></div>
           </>
