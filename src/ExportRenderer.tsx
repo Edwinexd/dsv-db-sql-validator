@@ -46,7 +46,7 @@ const ExportRenderer = React.forwardRef<HTMLDivElement, ExportRendererProps>(({ 
             }
             {view && 
                 <>
-                    <h2 className='text-3xl font-semibold mb-3.5'>View {view.view.name}</h2>
+                    <h2 className='text-3xl font-semibold mb-3.5'>View <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{view.view.name}</span></h2>
                     <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the query for view {view.view.name}:</p>
                 </>
             }
