@@ -70,14 +70,11 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect }) => {
           if (e) {
             setSequence('A');
             setCategory(Number(e.value));
-            // onSelect(questions.find(q => q.category_id === Number(e.value))!.questions.find(q => q.display_sequence === 'A')!);
-
           }
         }} className='text-black mr-3.5 ml-2.0' />
       Variant: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
         if (e) {
           setSequence(e.value);
-          // onSelect(questions.find(q => q.category_id === category)?.questions.find(q => q.display_sequence === e.value)!);
         }
       }} className='text-black ml-2.0' />
 

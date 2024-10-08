@@ -265,7 +265,7 @@ function App() {
 
 
   useEffect(() => {
-    if (!result || !question || (evaluatedQuery !== query && exportingStatus === 0)) {
+    if (!result || !question || evaluatedQuery !== query) {
       return;
     }
     if (!isCorrectResult(question.evaluable_result, result)) {
@@ -273,11 +273,6 @@ function App() {
       return;
     }
     setIsCorrect(true);
-
-    // if in export mode, nothing is changed
-    if (exportingStatus !== 0 || !query) {
-      return;
-    }
 
     localStorage.setItem(`correctQuestionId-${question.id}`, query);
     setCorrectQueryMismatch(false);
@@ -606,7 +601,7 @@ function App() {
   }, [exportData]);
 
   // Png exports
-  const triggerPngExport = useCallback(() => {
+  const exportImageQuery = useCallback(() => {
     if (question === undefined || !loadedQuestionCorrect || exportView) {
       return;
     }
@@ -620,7 +615,7 @@ function App() {
     setExportQuestion(question);
   }, [exportView, loadedQuestionCorrect, question]);
 
-  const pngExportView = useCallback((name: string) => {
+  const exportImageView = useCallback((name: string) => {
     if (!database || exportQuery) {
       return;
     }
@@ -733,7 +728,10 @@ function App() {
         <div className='flex flex-wrap justify-center text-base max-w-xl'>
           <button onClick={runQuery} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
           <button onClick={() => {
-            setQuery(format(query === undefined ? '-- Select a question to get started!.' : query, {
+            if (!query) {
+              return;
+            }
+            setQuery(format(query, {
               language: 'sqlite',
               tabWidth: 2,
               useTabs: false,
@@ -761,7 +759,7 @@ function App() {
             }
             }} className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Reset DB</button>
           */}
-          <button onClick={triggerPngExport} className='bg-green-500 hover:bg-green-700 disabled:bg-green-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit' disabled={!loadedQuestionCorrect}>Export PNG</button>
+          <button onClick={exportImageQuery} className='bg-green-500 hover:bg-green-700 disabled:bg-green-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit' disabled={!loadedQuestionCorrect}>Export PNG</button>
           <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Export Data</button>
           <button onClick={importData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Import Data</button>
         </div>
@@ -785,7 +783,7 @@ function App() {
               onViewRequest={(name) => { getViewResult(name); }} 
               currentlyQuriedView={queryedView}
               onViewHideRequest={() => resetResult()}
-              onViewExportRequest={(name) => pngExportView(name)}
+              onViewExportRequest={(name) => exportImageView(name)}
             />
             <div className='my-4'></div>
           </>
@@ -798,8 +796,9 @@ function App() {
             {isCorrect ? <>
               <h2 className="text-3xl font-semibold text-green-500">Matching Result!</h2>
               <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
-              </> : 
-              isCorrect === undefined ? <h2 className="text-3xl font-semibold text-blue-500">No result yet!</h2> :
+              </> : isCorrect === undefined ? 
+              <h2 className="text-3xl font-semibold text-blue-500">No result yet!</h2>
+              :
               <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
             }
             {/* Two different result tables next to each other, actual and expected */}
