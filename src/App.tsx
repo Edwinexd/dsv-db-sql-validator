@@ -74,6 +74,10 @@ function App() {
   const exportRendererRef = useRef<HTMLDivElement>(null);
 
   const editorRef = useRef<Editor>(null);
+
+  // QuestionSelector needs writtenQuestions and correctQuestions to be able to display the correct state
+  const [writtenQuestions, setWrittenQuestions] = useState<number[]>(localStorage.getItem('writtenQuestions') ? JSON.parse(localStorage.getItem('writtenQuestions')!) : []);
+  const [correctQuestions, setCorrectQuestions] = useState<number[]>(localStorage.getItem('correctQuestions') ? JSON.parse(localStorage.getItem('correctQuestions')!) : []);
   
   const resetResult = useCallback(() => {
     setResult(undefined);
@@ -686,7 +690,7 @@ function App() {
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className='text-6xl font-semibold my-3'>DB SQL Validator</h1>
         <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
-        <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
+        <QuestionSelector writtenQuestions={writtenQuestions} correctQuestions={correctQuestions} onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
         <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question?.description || 'Select a question to get started!'}</p>
         {query === undefined ? 
           <Editor
