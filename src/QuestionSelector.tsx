@@ -26,6 +26,120 @@ interface QuestionSelectorProps {
   correctQuestions?: number[];
 }
 
+interface HighlightProps {
+  isCorrect: boolean;
+  isWritten: boolean;
+  children: React.ReactNode;
+}
+
+interface HighlightBaseProps {
+  dataValue: string;
+  isCategory: boolean;
+  category?: number;
+  correctQuestions?: number[];
+  writtenQuestions?: number[];
+  children: React.ReactNode;
+}
+
+interface HighlightedOptionProps extends HighlightBaseProps {
+  className?: string;
+  isDisabled?: boolean;
+  isFocused?: boolean;
+  isSelected?: boolean;
+  innerRef?: React.Ref<HTMLDivElement>;
+  innerProps?: React.HTMLAttributes<HTMLDivElement>;
+}
+
+interface HighlightedSingleValueProps extends HighlightBaseProps {}
+
+const HighlightWrapper: React.FC<HighlightProps> = ({ isCorrect, isWritten, children }) => {
+  if (isCorrect) {
+    return <span className="bg-green-200 bg-opacity-75 text-black px-2 p-0.5 rounded">{children}</span>;
+  }
+  if (isWritten) {
+    return <span className="bg-yellow-200 bg-opacity-75 text-black px-2 p-0.5 rounded">{children}</span>;
+  }
+  return <span>{children}</span>;
+};
+
+
+const useHighlightLogic = (
+  dataValue: string,
+  isCategory: boolean,
+  category: number | undefined,
+  correctQuestions?: number[],
+  writtenQuestions?: number[]
+) => {
+  let isCorrect = false;
+  let isWritten = false;
+
+  if (isCategory) {
+    const categoryObj = questions.find(q => q.category_id === Number(dataValue));
+    if (categoryObj) {
+      isCorrect = correctQuestions?.some(id => categoryObj.questions.some(q => q.id === id)) || false;
+      isWritten = !isCorrect && (writtenQuestions?.some(id => categoryObj.questions.some(q => q.id === id)) || false);
+    }
+  } else if (category !== undefined) {
+    const question = questions
+      .find(q => q.category_id === category)
+      ?.questions.find(q => q.display_sequence === dataValue);
+    if (question) {
+      isCorrect = correctQuestions?.includes(question.id) || false;
+      isWritten = !isCorrect && (writtenQuestions?.includes(question.id) || false);
+    }
+  }
+
+  return { isCorrect, isWritten };
+};
+
+const HighlightedOption: React.FC<HighlightedOptionProps> = ({
+  dataValue,
+  isCategory,
+  category,
+  correctQuestions,
+  writtenQuestions,
+  children,
+  className,
+  isDisabled,
+  isFocused,
+  isSelected,
+  innerRef,
+  innerProps,
+}) => {
+  const { isCorrect, isWritten } = useHighlightLogic(dataValue, isCategory, category, correctQuestions, writtenQuestions);
+
+  return (
+    <div
+      ref={innerRef}
+      className={`${className} ${isFocused && !isSelected ? 'bg-blue-200' : ''} ${isSelected ? 'bg-blue-500 focus:bg-blue-700 text-white' : ''} p-2`}
+      {...innerProps}
+    >
+      <HighlightWrapper isCorrect={isCorrect} isWritten={isWritten}>
+        {children}
+      </HighlightWrapper>
+    </div>
+  );
+};
+
+const HighlightedSingleValue: React.FC<HighlightedSingleValueProps> = ({
+  dataValue,
+  isCategory,
+  category,
+  correctQuestions,
+  writtenQuestions,
+  children,
+}) => {
+  const { isCorrect, isWritten } = useHighlightLogic(dataValue, isCategory, category, correctQuestions, writtenQuestions);
+
+  return (
+    <div className="text-black col-start-1 col-end-3 row-start-1 row-end-2">
+      <HighlightWrapper isCorrect={isCorrect} isWritten={isWritten}>
+        {children}
+      </HighlightWrapper>
+    </div>
+  );
+};
+
 const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQuestions, correctQuestions }) => {
   const [category, setCategory] = React.useState<number>();
   const [sequenceOptions, setSequenceOptions] = React.useState<{ value: string, label: string }[]>([]);
@@ -75,65 +189,26 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
           }
         }} 
         className='text-black mr-3.5 ml-2'
-        // classNames={{
-        //   option: ({ data, isDisabled }) => {
-        //     // data.value points to a category
-        //     const categoryObj = questions.find(q => q.category_id === Number(data.value))!;
-        //     // if any of the questions in the category are correct, green blob highlight
-        //     if (categoryObj.questions.some(q => correctQuestions && correctQuestions.includes(q.id))) {
-        //       return "!bg-green-100 text-green-800 py-1 rounded";
-        //     }
-        //     return "!bg-red-100 text-red-800 py-1 rounded p-1";
-        //   },
-        // }}
-        components={{ Option: (props) => {
-          const {
-            children,
-            className,
-            cx,
-            isDisabled,
-            isFocused,
-            isSelected,
-            innerRef,
-            innerProps,
-            data,
-          } = props;
-
-          const categoryObj = questions.find(q => q.category_id === Number(data.value))!;
-
-          const isCorrect = correctQuestions && categoryObj.questions.some(q => correctQuestions.includes(q.id));
-          const isWritten = !isCorrect && writtenQuestions && categoryObj.questions.some(q => writtenQuestions.includes(q.id));
-
-          return (
-            <div
-              ref={innerRef}
-              className={cx(
-              {
-                option: true,
-                'option--is-disabled': isDisabled,
-                'option--is-focused': isFocused,
-                'option--is-selected': isSelected,
-              },
-              className,
-              isFocused && !isSelected ? "bg-blue-200" : "",
-              isSelected ? "bg-blue-500 focus:bg-blue-700 text-white" : "",
-              "p-2"
-              )}
-              {...innerProps}
-            >
-              {isCorrect && <span className={"bg-green-200 bg-opacity-75 text-black px-2 p-0.5 rounded"}>
-                {children}
-              </span>}
-              {isWritten && <span className={"bg-yellow-200 bg-opacity-75 text-black px-2 p-0.5 rounded"}>
-                {children}
-              </span>}
-              {!isCorrect && !isWritten &&
-              <span>
-                {children}
-              </span>}
-            </div>
-          );
-        }}}
+        components={{
+          Option: (props) => (
+            <HighlightedOption
+              {...props}
+              dataValue={props.data.value}
+              isCategory={true}
+              correctQuestions={correctQuestions}
+              writtenQuestions={writtenQuestions}
+            />
+          ),
+          SingleValue: (props) => (
+            <HighlightedSingleValue
+              {...props}
+              dataValue={props.data.value}
+              isCategory={true}
+              correctQuestions={correctQuestions}
+              writtenQuestions={writtenQuestions}
+            />
+          ),
+        }}
         
       />
       Variant: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
@@ -142,53 +217,26 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
         }
       }} className='text-black ml-2'
       components={{
-        Option: (props) => {
-          const {
-            children,
-            className,
-            cx,
-            isDisabled,
-            isFocused,
-            isSelected,
-            innerRef,
-            innerProps,
-            data,
-          } = props;
-
-          const question = questions.find(q => q.category_id === category)!.questions.find(q => q.display_sequence === data.value)!;
-          const isCorrect = correctQuestions && correctQuestions.includes(question.id);
-          const isWritten = !isCorrect && writtenQuestions && writtenQuestions.includes(question.id);
-
-          return (
-            <div
-              ref={innerRef}
-              className={cx(
-                {
-                  option: true,
-                  'option--is-disabled': isDisabled,
-                  'option--is-focused': isFocused,
-                  'option--is-selected': isSelected,
-                },
-                className,
-                isFocused && !isSelected ? "bg-blue-200" : "",
-                isSelected ? "bg-blue-500 focus:bg-blue-700 text-white" : "",
-                "p-2"
-              )}
-              {...innerProps}
-            >
-              {isCorrect && <span className={"bg-green-200 bg-opacity-75 text-black px-2 p-0.5 rounded"}>
-                {children}
-              </span>}
-              {isWritten && <span className={"bg-yellow-200 bg-opacity-75 text-black px-2 p-0.5 rounded"}>
-                {children}
-              </span>}
-              {!isCorrect && !isWritten &&
-              <span>
-                {children}
-              </span>}
-            </div>
-          );
-        }
+        Option: (props) => (
+          <HighlightedOption
+            {...props}
+            dataValue={props.data.value}
+            isCategory={false}
+            category={category}
+            correctQuestions={correctQuestions}
+            writtenQuestions={writtenQuestions}
+          />
+        ),
+        SingleValue: (props) => (
+          <HighlightedSingleValue
+            {...props}
+            dataValue={props.data.value}
+            isCategory={false}
+            category={category}
+            correctQuestions={correctQuestions}
+            writtenQuestions={writtenQuestions}
+          />
+        ),
       }}
       />
 
