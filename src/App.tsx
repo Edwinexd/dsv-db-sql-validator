@@ -112,31 +112,25 @@ function App() {
     if (!database || !question || query === undefined) {
       return;
     }
-    if (query !== DEFAULT_QUERY) {
-      localStorage.setItem('questionId-' + question.id, query);
-      // ensure that questionid is in localstorage writtenQuestions
-      const writtenQuestions = localStorage.getItem('writtenQuestions');
-      if (!writtenQuestions) {
-        localStorage.setItem('writtenQuestions', JSON.stringify([question.id]));
-      } else {
-        const parsed = JSON.parse(writtenQuestions);
-        if (!parsed.includes(question.id)) {
-          parsed.push(question.id);
-          localStorage.setItem('writtenQuestions', JSON.stringify(parsed));
-        }
-      }
-    } else {
+    let writtenQuestions = JSON.parse(localStorage.getItem('writtenQuestions') || '[]');
+    const initialLength = writtenQuestions.length;
+    if (query === DEFAULT_QUERY || query === '') {
       localStorage.removeItem('questionId-' + question.id);
       // remove from writtenQuestions if it exists there as well
-      const writtenQuestions = localStorage.getItem('writtenQuestions');
-      if (writtenQuestions) {
-        const parsed = JSON.parse(writtenQuestions);
-        const filtered = parsed.filter((id: number) => id !== question.id);
-        if (filtered.length !== parsed.length) {
-          localStorage.setItem('writtenQuestions', JSON.stringify(filtered));
-        }
+      const filtered = writtenQuestions.filter((id: number) => id !== question.id);
+      writtenQuestions = filtered;
+    } else {
+      localStorage.setItem('questionId-' + question.id, query);
+      // ensure that questionid is in localstorage writtenQuestions
+      if (!writtenQuestions.includes(question.id)) {
+        writtenQuestions.push(question.id);
       }
     }
+    if (writtenQuestions.length !== initialLength) {
+      localStorage.setItem('writtenQuestions', JSON.stringify(writtenQuestions));
+      setWrittenQuestions(writtenQuestions);
+    }
+
     try {
       const stmt = database.prepare(query);
       // Needs to be called per the documentation
@@ -282,15 +276,11 @@ function App() {
     setCorrectQueryMismatch(false);
     setLoadedQuestionCorrect(true);
     
-    const correctQuestions = localStorage.getItem('correctQuestions');
-    if (!correctQuestions) {
-      localStorage.setItem('correctQuestions', JSON.stringify([question.id]));
-    } else {
-      const parsed = JSON.parse(correctQuestions);
-      if (!parsed.includes(question.id)) {
-        parsed.push(question.id);
-        localStorage.setItem('correctQuestions', JSON.stringify(parsed));
-      }
+    const correctQuestions = JSON.parse(localStorage.getItem('correctQuestions') || '[]');
+    if (!correctQuestions.includes(question.id)) {
+      correctQuestions.push(question.id);
+      localStorage.setItem('correctQuestions', JSON.stringify(correctQuestions));
+      setCorrectQuestions(correctQuestions);
     }
   }, [result, question, query, evaluatedQuery, exportingStatus]);
 
@@ -539,8 +529,13 @@ function App() {
     // Extract and load raw list dumps
     const rawLists = data.match(/\/\*\s--- BEGIN Raw List Dumps --- \*\/\n--\s(.*)\n--\s(.*)\n\/\*\s--- END Raw List Dumps --- \*\//)!;
     
-    localStorage.setItem('writtenQuestions', rawLists[1]);
-    localStorage.setItem('correctQuestions', rawLists[2]);
+
+    const newWrittenQuestions = JSON.parse(rawLists[1]);
+    const newCorrectQuestions = JSON.parse(rawLists[2]);
+    setWrittenQuestions(newWrittenQuestions);
+    setCorrectQuestions(newCorrectQuestions);
+    localStorage.setItem('writtenQuestions', JSON.stringify(newWrittenQuestions));
+    localStorage.setItem('correctQuestions', JSON.stringify(newCorrectQuestions));
     
     // Upsert views
     // Delete all current views

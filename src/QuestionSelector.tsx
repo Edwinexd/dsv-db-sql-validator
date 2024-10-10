@@ -59,7 +59,7 @@ const HighlightWrapper: React.FC<HighlightProps> = ({ isCorrect, isWritten, chil
   if (isWritten) {
     return <span className="bg-yellow-200 bg-opacity-75 text-black px-2 p-0.5 rounded">{children}</span>;
   }
-  return <span>{children}</span>;
+  return <span className='px-2 p-0.5'>{children}</span>;
 };
 
 
