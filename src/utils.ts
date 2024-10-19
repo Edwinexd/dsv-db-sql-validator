@@ -254,11 +254,10 @@ class RowHashSet {
     }
 }
 
-interface Result {
+export interface Result {
     columns: string[];
     data: (number | string | Uint8Array | null)[][];
 }
-    
 
 export function isCorrectResult(expected: Result, actual: Result) {
     // Check if the columns are the same

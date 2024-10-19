@@ -1,11 +1,23 @@
 import React from 'react';
+import { Result } from './utils';
 
 interface ResultTableProps {
-    columns: string[];
-    data: (number | string | Uint8Array | null)[][];
+    result: Result;
+    forceLight?: boolean;
 }
 
-const ResultTable: React.FC<ResultTableProps> = ({ columns, data }) => {
+const ResultTable: React.FC<ResultTableProps> = ({ result, forceLight }) => {
+    const maybeRemoveDark = (className: string) => {
+        if (forceLight) {
+            return '';
+        }
+        return className;
+    }
+
+
+    const columns = result.columns;
+    let data = result.data;
+    
     if (data.length === 0) {
         return <div>No results</div>;
     }
@@ -17,11 +29,11 @@ const ResultTable: React.FC<ResultTableProps> = ({ columns, data }) => {
     }
     return (
         <>
-            <table className="table-auto text-sm dark:bg-slate-700 bg-slate-300">
+            <table className={`table-auto text-sm ${maybeRemoveDark("dark:bg-slate-700")} bg-slate-300`}>
                 <thead>
                     <tr>
                         {columns.map((col, i) => (
-                            <th key={col + "-" + i} className="border dark:border-slate-600 px-4 py-2 dark:bg-slate-600 bg-slate-200">{col}</th>
+                            <th key={col + "-" + i} className={`border ${maybeRemoveDark("dark:border-slate-600 dark:bg-slate-600")} px-4 py-2 bg-slate-200`}>{col}</th>
                         ))}
                     </tr>
                 </thead>
@@ -29,7 +41,7 @@ const ResultTable: React.FC<ResultTableProps> = ({ columns, data }) => {
                     {data.map((row, i) => (
                         <tr key={i}>
                             {row.map((cell, j) => (
-                                <td key={i + "-" + j} className="border dark:border-slate-600 px-4 py-2">{cell}</td>
+                                <td key={i + "-" + j} className={`border ${maybeRemoveDark("dark:border-slate-600")} px-4 py-2`}>{cell}</td>
                             ))}
                         </tr>
                     ))}

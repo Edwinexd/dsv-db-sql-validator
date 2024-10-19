@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from 'react-simple-code-editor';
 import './App.css';
 import db_scheme_dark from './db_scheme_dark.png';
@@ -23,6 +23,7 @@ import db_scheme_light from './db_scheme_light.png';
 import ResultTable from './ResultTable';
 
 import QuestionSelector, { Question } from './QuestionSelector';
+import ExportRenderer from './ExportRenderer';
 
 // @ts-ignore
 import { highlight, languages } from 'prismjs/components/prism-core';
@@ -34,14 +35,15 @@ import ViewsTable from './ViewsTable';
 
 import sha256 from 'crypto-js/sha256';
 import questions from './questions.json';
-import { isCorrectResult } from './utils';
+import { isCorrectResult, Result } from './utils';
 import ThemeToggle from './ThemeToggle';
 import useTheme from './useTheme';
 import { InformationCircleIcon } from '@heroicons/react/24/solid';
+import { toPng } from 'html-to-image';
 
 
 // Representing a view
-interface View {
+export interface View {
   name: string;
   query: string;
 }
@@ -49,23 +51,33 @@ interface View {
 const DEFAULT_QUERY = "SELECT * FROM student;";
 
 function App() {
-  const [question, setQuestion] = useState<Question>(questions[0].questions[0]);
+  const [question, setQuestion] = useState<Question>();
   const [database, setDatabase] = useState<initSqlJs.Database>();
   const [error, setError] = useState<string | null>(null);
   // flag for correct result query being present but current (which might not be evaluated) is not the same
   const [correctQueryMismatch, setCorrectQueryMismatch] = useState<boolean>(false);
-  const [query, setQuery] = useState<string>(localStorage.getItem('questionId-' + question.id) || DEFAULT_QUERY);
-  const [result, setResult] = useState<{ columns: string[], data: (number | string | Uint8Array | null)[][] } | null>(null);
+  const [query, setQuery] = useState<string | undefined>();
+  const [result, setResult] = useState<Result>();
   const [evaluatedQuery, setEvaluatedQuery] = useState<string | null>(null);
   const [showViewsTable, setDisplayViewsTable] = useState<boolean>(false);
   const [isViewResult, setIsViewResult] = useState<boolean>(false);
   const [queryedView, setQueryedView] = useState<string | null>(null);
   const [views, setViews] = useState<View[]>([]);
-  const [isCorrect, setIsCorrect] = useState<boolean>(false);
-  const { setTheme, isDarkMode } = useTheme();
+  const [isCorrect, setIsCorrect] = useState<boolean>();
+  const { getTheme, setTheme, isDarkMode } = useTheme();
+  // Exporting functionality / flags
+  const [exportView, setExportView] = useState<View>();
+  const [exportQuestion, setExportQuestion] = useState<Question>();
+  const [exportQuery, setExportQuery] = useState<string | undefined>();
+  const [exportingStatus, setExportingStatus] = useState<number>(0);
+  const [loadedQuestionCorrect, setLoadedQuestionCorrect] = useState<boolean>(false);
+  const exportRendererRef = useRef<HTMLDivElement>(null);
+
+  const editorRef = useRef<Editor>(null);
   
   const resetResult = useCallback(() => {
-    setResult(null);
+    setResult(undefined);
+    setIsCorrect(undefined);
     setEvaluatedQuery(null);
     setIsViewResult(false);
     setQueryedView(null);
@@ -93,7 +105,7 @@ function App() {
   }, [initDb]);
 
   useEffect(() => {
-    if (!database) {
+    if (!database || !question || query === undefined) {
       return;
     }
     if (query !== DEFAULT_QUERY) {
@@ -130,7 +142,7 @@ function App() {
       // @ts-ignore
       setError(e.message);
     }
-  }, [database, query, question.id]);
+  }, [database, query, question]);
 
 
   const refreshViews = useCallback((upsert: boolean) => {
@@ -175,7 +187,7 @@ function App() {
   }, [database, views.length]);
 
   const runQuery = useCallback(() => {
-    if (!database) {
+    if (!database || query === undefined) {
       return;
     }
     try {
@@ -195,6 +207,27 @@ function App() {
       setError(e.message);
     }
   }, [database, query, refreshViews]);
+
+  const evalSql = useCallback((sql: string): Result => {
+    if (!database) {
+      return { columns: [], data: [] };
+    }
+    try {
+      const res = database.exec(sql);
+      let result: Result;
+      if (res.length !== 0) {
+        const { columns, values } = res[0];
+        result = { columns, data: values };
+      } else {
+        result = {columns: [], data: []};
+      }
+      return result;
+    } catch (e) {
+      // @ts-ignore
+      alert("Error occurred while evaluating SQL Query internally: " + e.message);
+      return { columns: [], data: [] };
+    }
+  }, [database]);
 
   const getViewResult = useCallback((name: string) => {
     if (!database) {
@@ -232,10 +265,10 @@ function App() {
 
 
   useEffect(() => {
-    if (!result || evaluatedQuery !== query) {
+    if (!result || !question || evaluatedQuery !== query) {
       return;
     }
-    if (!isCorrectResult({columns: question.result.columns, data: question.result.values}, result)) {
+    if (!isCorrectResult(question.evaluable_result, result)) {
       setIsCorrect(false);
       return;
     }
@@ -243,6 +276,7 @@ function App() {
 
     localStorage.setItem(`correctQuestionId-${question.id}`, query);
     setCorrectQueryMismatch(false);
+    setLoadedQuestionCorrect(true);
     
     const correctQuestions = localStorage.getItem('correctQuestions');
     if (!correctQuestions) {
@@ -254,24 +288,31 @@ function App() {
         localStorage.setItem('correctQuestions', JSON.stringify(parsed));
       }
     }
-  }, [result, question.result.columns, question.result.values, question.id, query, evaluatedQuery]);
+  }, [result, question, query, evaluatedQuery, exportingStatus]);
 
   // Save query based on question
-  const loadQuery = useCallback((oldQuestion: Question, newQuestion: Question) => {
+  const loadQuery = useCallback((oldQuestion: Question | undefined, newQuestion: Question) => {
     setQuery(localStorage.getItem('questionId-' + newQuestion.id) || DEFAULT_QUERY);
+    // This prevents user from ctrl-z'ing to a different question
+    if (editorRef.current) {
+      editorRef.current!.session = {history: { stack: [], offset: 0 }};
+    }
   }, [setQuery]);
 
-  // Update mismatch flag when query is changed
+  // Update mismatch & loadedQuestionCorrect flags when query is changed
   useEffect(() => {
-    if (!database) {
+    if (!database || !question || query === undefined) {
       return;
     }
 
     const correctQuery = localStorage.getItem(`correctQuestionId-${question.id}`);
     if (!correctQuery) {
       setCorrectQueryMismatch(false);
+      setLoadedQuestionCorrect(false);
       return;
     }
+
+    setLoadedQuestionCorrect(true);
 
     let currentQuery = '';
     try {
@@ -300,7 +341,7 @@ function App() {
     } else {
       setCorrectQueryMismatch(false);
     }
-  }, [database, question.id, query]);
+  }, [database, question, query]);
 
   const exportData = useCallback(() => {
     if (!database) {
@@ -482,7 +523,7 @@ function App() {
     // Insert new data
     for (const [key, value] of Object.entries(parsedQueries)) {
       localStorage.setItem(`questionId-${key}`, value);
-      if (Number(key) === question.id) {
+      if (question !== undefined && Number(key) === question.id) {
         setQuery(value);
       }
     }
@@ -514,7 +555,7 @@ function App() {
       }
       refreshViews(true);
     }
-  }, [database, question.id, refreshViews, views]);
+  }, [database, question, refreshViews, views]);
 
   const importData = useCallback(() => {
     // Confirm that the user wants to import data, it will overwrite the current data
@@ -559,24 +600,120 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [exportData]);
 
+  // Png exports
+  const exportImageQuery = useCallback(() => {
+    if (question === undefined || !loadedQuestionCorrect || exportView) {
+      return;
+    }
+
+    const toExportQuery = localStorage.getItem(`correctQuestionId-${question.id}`);
+    if (!toExportQuery) {
+      return;
+    }
+
+    setExportQuery(toExportQuery);
+    setExportQuestion(question);
+  }, [exportView, loadedQuestionCorrect, question]);
+
+  const exportImageView = useCallback((name: string) => {
+    if (!database || exportQuery) {
+      return;
+    }
+    const view = views.find(v => v.name === name);
+    if (!view) {
+      return;
+    }
+    setExportView(view);
+  }, [database, exportQuery, views]);
+
+  useEffect(() => {
+    if (!exportRendererRef.current || exportingStatus >= 1) {
+      return;
+    }
+
+    // TODO: I'm not really a fan of this solution but without it the browser crashes due to downloading an extreme amount of files
+    setExportingStatus(1);
+
+    // View
+    if (exportView) {
+      toPng(exportRendererRef.current, { 
+        canvasWidth: exportRendererRef.current.clientWidth,
+        width: exportRendererRef.current.clientWidth,
+        canvasHeight: exportRendererRef.current.clientHeight,
+        height: exportRendererRef.current.clientHeight,
+        pixelRatio: 1 
+      }).then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `validator_${exportView.name}.png`;
+        link.href = dataUrl;
+        link.click();
+        setExportView(undefined);
+        setExportingStatus(0);
+      });
+      return;
+    }
+
+    // Question
+    if (!question || !exportQuery || !exportQuestion) {
+      return;
+    }
+
+    const exportRenderer = exportRendererRef.current;
+    toPng(exportRenderer, { 
+      canvasWidth: exportRenderer.clientWidth,
+      width: exportRenderer.clientWidth,
+      canvasHeight: exportRenderer.clientHeight,
+      height: exportRenderer.clientHeight,
+      pixelRatio: 1 
+    }).then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `validator_${question.id}_${question.category.display_number}${question.display_sequence}.png`;
+        link.href = dataUrl;
+        link.click();
+        setExportQuestion(undefined);
+        setExportQuery(undefined);
+        setExportingStatus(0)
+      }
+    );
+  }, [evaluatedQuery, exportQuery, exportRendererRef, getTheme, isDarkMode, exportingStatus, question, resetResult, setTheme, exportQuestion, exportView]);
+
   return (
     <div className="App">
+      {exportQuestion && exportQuery && <ExportRenderer query={{isCorrect: isCorrectResult(exportQuestion.evaluable_result, evalSql(exportQuery)), question: exportQuestion, code: exportQuery, result: evalSql(exportQuery)}} ref={exportRendererRef} />}
+      {exportView && <ExportRenderer view={{view: exportView, result: evalSql(`SELECT * FROM ${exportView.name}`)}} ref={exportRendererRef} />}
       <header className="App-header">
         <div className='my-2'></div>
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className='text-6xl font-semibold my-3'>DB SQL Validator</h1>
-        <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout w-full max-w-xl" alt="Database Layout" />
+        <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
         <QuestionSelector onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
-        <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question.description}</p>
-        <Editor
-          value={query}
-          onValueChange={code => setQuery(code)}
-          highlight={code => highlight(code, languages.sql)}
-          padding={10}
-          tabSize={2}
-          className="font-mono text-xl w-full max-w-4xl dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-black dark:border-white"
-        />
-        
+        <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question?.description || 'Select a question to get started!'}</p>
+        {query === undefined ? 
+          <Editor
+            id='placeholder-editor'
+            itemID='placeholder-editor'
+            value={"-- Select a question to get started!"}
+            disabled={true}
+            onValueChange={code => null}
+            highlight={code => highlight(code, languages.sql)}
+            padding={10}
+            tabSize={2}
+            className="font-mono text-xl w-full max-w-4xl dark:bg-slate-800 bg-slate-200 min-h-40"
+            ref={editorRef}
+          />
+          : 
+          <Editor
+            id='editor'
+            itemID='editor'
+            value={query}
+            onValueChange={code => setQuery(code)}
+            highlight={code => highlight(code, languages.sql)}
+            padding={10}
+            tabSize={2}
+            className="font-mono text-xl w-full max-w-4xl dark:bg-slate-800 bg-slate-200 border-2 min-h-40 border-black dark:border-white"
+            ref={editorRef}
+          />
+        }
         {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
         {correctQueryMismatch &&
             <p className='font-mono text-yellow-500 max-w-4xl break-all'>Query Mismatch! 
@@ -589,26 +726,40 @@ function App() {
           </p>
         }
         <div className='flex flex-wrap justify-center text-base max-w-xl'>
-          <button onClick={runQuery} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
+          <button onClick={runQuery} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
           <button onClick={() => {
-          setQuery(format(query, {
-            language: 'sqlite',
-            tabWidth: 2,
-            useTabs: false,
-            keywordCase: 'upper',
-            dataTypeCase: 'upper',
-            functionCase: 'upper',
-        }))}} disabled={!(error === null)} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Format Code</button>
+            if (!query) {
+              return;
+            }
+            setQuery(format(query, {
+              language: 'sqlite',
+              tabWidth: 2,
+              useTabs: false,
+              keywordCase: 'upper',
+              dataTypeCase: 'upper',
+              functionCase: 'upper',
+          }))}} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>
+            Format Code
+          </button>
           <button onClick={() => {
-            setQuery(localStorage.getItem(`correctQuestionId-${question.id}`) || DEFAULT_QUERY);
-          }} 
-            disabled={!correctQueryMismatch}
-          className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Load Saved</button>
+              if (!question) {
+                return;
+              }
+              setQuery(localStorage.getItem(`correctQuestionId-${question.id}`) || DEFAULT_QUERY);
+            }} 
+            disabled={!correctQueryMismatch || !question}
+            className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>
+              Load Saved
+          </button>
+          {/* Might be removed fully, servers no purpose as it is right now */}
+          {/*
           <button onClick={() => {
             if (window.confirm('Are you sure you want to reset the database?\n\nNote: This will not reset your written answers.')) {
               initDb();
             }
             }} className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Reset DB</button>
+          */}
+          <button onClick={exportImageQuery} className='bg-green-500 hover:bg-green-700 disabled:bg-green-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit' disabled={!loadedQuestionCorrect}>Export PNG</button>
           <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Export Data</button>
           <button onClick={importData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Import Data</button>
         </div>
@@ -632,6 +783,7 @@ function App() {
               onViewRequest={(name) => { getViewResult(name); }} 
               currentlyQuriedView={queryedView}
               onViewHideRequest={() => resetResult()}
+              onViewExportRequest={(name) => exportImageView(name)}
             />
             <div className='my-4'></div>
           </>
@@ -639,25 +791,28 @@ function App() {
         
 
         {result && <>
-          {!isViewResult ? <>
+          {!isViewResult ? question && <>
             {/* if correct result else display wrong result */}
             {isCorrect ? <>
               <h2 className="text-3xl font-semibold text-green-500">Matching Result!</h2>
               <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
-              </> : <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
+              </> : isCorrect === undefined ? 
+              <h2 className="text-3xl font-semibold text-blue-500">No result yet!</h2>
+              :
+              <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
             }
             {/* Two different result tables next to each other, actual and expected */}
             <div className="flex max-w-full py-4 justify-center">
               <div className="flex-initial px-2 overflow-x-auto">
                 <h2 className="text-3xl font-semibold py-2">Actual</h2>
                 <div className="overflow-x-auto max-w-full">
-                  <ResultTable columns={result.columns} data={result.data} />
+                  <ResultTable result={result} />
                 </div>
               </div>
               <div className="flex-initial px-2 overflow-x-auto">
                 <h2 className="text-3xl font-semibold py-2">Expected</h2>
                 <div className="overflow-x-auto max-w-full">
-                  <ResultTable columns={question.result.columns} data={question.result.values} />
+                  <ResultTable result={question.evaluable_result} />
                 </div>
               </div>
             </div>
@@ -686,7 +841,7 @@ function App() {
             {/* <h2 className="text-3xl font-semibold">Result of {queryedView}</h2> */}
             <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... and this is the result of querying it with SELECT * FROM {queryedView};</p>
             <div className="overflow-x-auto max-w-full">
-              <ResultTable columns={result.columns} data={result.data} />
+              <ResultTable result={result} />
             </div>
           </>}
         </>}
