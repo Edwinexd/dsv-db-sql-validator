@@ -40,6 +40,7 @@ import ThemeToggle from './ThemeToggle';
 import useTheme from './useTheme';
 import { InformationCircleIcon } from '@heroicons/react/24/solid';
 import { toPng } from 'html-to-image';
+import PrivacyNoticeToggle from './PrivacyNoticeToggle';
 
 
 // Representing a view
@@ -848,6 +849,7 @@ function App() {
           <div className="container mx-auto flex justify-between items-center space-x-8">
             <p>Copyright &copy; <a href="https://github.com/Edwinexd" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">Edwin Sundberg</a> {new Date().getFullYear()} - All Rights Reserved</p>              
             <p><a href="https://github.com/Edwinexd/dsv-db-sql-validator/issues" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">Report issues</a></p>
+            <PrivacyNoticeToggle></PrivacyNoticeToggle>
           </div>
         </footer>
       </header>
