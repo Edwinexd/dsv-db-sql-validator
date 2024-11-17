@@ -256,7 +256,11 @@ function App() {
     }
     database.exec(`DROP VIEW ${name}`);
     refreshViews(true);
-  }, [database, refreshViews]);
+
+    if (isViewResult && queryedView === name) {
+      resetResult();
+    }
+  }, [database, isViewResult, queryedView, refreshViews, resetResult]);
 
   useEffect(() => {
     refreshViews(false);
@@ -824,7 +828,7 @@ function App() {
             <Editor
                 readOnly={true}
                 value={format(
-                  views.find(view => view.name === queryedView)!.query, {
+                  views.find(view => view.name === queryedView) ? views.find(view => view.name === queryedView)!.query : '-- View Deleted', {
                     language: 'sqlite',
                     tabWidth: 2,
                     useTabs: false,
