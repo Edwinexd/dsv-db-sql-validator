@@ -365,12 +365,12 @@ function App() {
 
     output += '/* --- BEGIN Submission Summary --- */\n';
     const writtenQueries = localStorage.getItem('correctQuestions') || '[]';
-    const parsed = JSON.parse(writtenQueries);
-    const questionsString = parsed.map((id: number) => {
+    const parsed = JSON.parse(writtenQueries) as number[];
+    const questionsString = parsed.map((id) => {
       const category = questions.find(c => c.questions.some(q => q.id === id))!;
       const question = category.questions.find(q => q.id === id)!;
-      return `${category.display_number}${question.display_sequence}`;
-    }).sort().join(', ');
+      return { formatted: `${category.display_number}${question.display_sequence}`, number: category.display_number, sequence: question.display_sequence };
+    }).sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.formatted).join(', ');
     output += `-- Written Questions: ${questionsString}\n`;
     output += '/* --- END Submission Summary --- */\n';
     if (views.length > 0) {
@@ -423,12 +423,12 @@ function App() {
     
     output += '/* --- BEGIN Save Summary --- */\n';
     const existingQueries = localStorage.getItem('writtenQuestions') || '[]';
-    const existingParsed = JSON.parse(existingQueries);
-    const existingQuestions = existingParsed.map((id: number) => {
+    const existingParsed = JSON.parse(existingQueries) as number[];
+    const existingQuestions = existingParsed.map((id) => {
       const category = questions.find(c => c.questions.some(q => q.id === id))!;
       const question = category.questions.find(q => q.id === id)!;
-      return `${category.display_number}${question.display_sequence}`;
-    }).sort().join(', ');
+      return { formatted: `${category.display_number}${question.display_sequence}`, number: category.display_number, sequence: question.display_sequence };
+    }).sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.formatted).join(', ');
     output += `-- Written Questions: ${existingQuestions}\n`;
     output += '/* --- END Save Summary --- */\n';
     output += '/* --- BEGIN Raw Queries --- */\n';
