@@ -1,6 +1,6 @@
 {
-  "name": "dsv-db-sql-validator",
-  "version": "0.1.0",
+  "name": "sql-validator",
+  "version": "1.0.0",
   "private": true,
   "dependencies": {
     "@heroicons/react": "^2.1.3",
