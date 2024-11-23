@@ -1,6 +1,6 @@
 {
-  "short_name": "DB SQL Validator",
-  "name": "DB SQL Validator",
+  "short_name": "SQL Validator",
+  "name": "SQL Validator",
   "icons": [
     {
       "src": "favicon.ico",
