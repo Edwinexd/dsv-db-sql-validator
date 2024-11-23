@@ -395,9 +395,14 @@ function App() {
 
     const queries = localStorage.getItem('correctQuestions');
     if (queries) {
-      const parsed = JSON.parse(queries);
-      parsed.sort();
-      const questionQueries = parsed.map((id: number) => {
+      const parsed = JSON.parse(queries) as number[];
+      const sorted = parsed.map((id) => {
+        const category = questions.find(c => c.questions.some(q => q.id === id))!;
+        const question = category.questions.find(q => q.id === id)!;
+        return { category, question };
+      }).map(({ category, question }) => { return { number: category.display_number, sequence: question.display_sequence, id: question.id }})
+      .sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.id);
+      const questionQueries = sorted.map((id: number) => {
         const category = questions.find(c => c.questions.some(q => q.id === id))!;
         const question = category.questions.find(q => q.id === id)!;
         const activeQuery = localStorage.getItem('correctQuestionId-' + id);
