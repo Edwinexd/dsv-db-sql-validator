@@ -6,7 +6,7 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import { Result } from "./utils";
 import ResultTable from "./ResultTable";
 import { Question } from "./QuestionSelector";
-import { View } from "./App";
+import { View } from "./ViewsTable";
 
 interface ExportRendererProps {
   query?: {
