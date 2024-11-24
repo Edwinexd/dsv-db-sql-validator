@@ -50,8 +50,7 @@ interface HighlightedOptionProps extends HighlightBaseProps {
   innerProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface HighlightedSingleValueProps extends HighlightBaseProps {}
+type HighlightedSingleValueProps = HighlightBaseProps;
 
 const HighlightWrapper: React.FC<HighlightProps> = ({ isCorrect, isWritten, children }) => {
   if (isCorrect) {
