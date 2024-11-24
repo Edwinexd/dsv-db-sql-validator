@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react'
-import Select from 'react-select'
-import questions from './questions.json'
-import { Result } from './utils';
+import React, { useEffect } from "react"
+import Select from "react-select"
+import questions from "./questions.json"
+import { Result } from "./utils";
 
 export interface Category {
   id: number;
@@ -50,6 +50,7 @@ interface HighlightedOptionProps extends HighlightBaseProps {
   innerProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface HighlightedSingleValueProps extends HighlightBaseProps {}
 
 const HighlightWrapper: React.FC<HighlightProps> = ({ isCorrect, isWritten, children }) => {
@@ -59,7 +60,7 @@ const HighlightWrapper: React.FC<HighlightProps> = ({ isCorrect, isWritten, chil
   if (isWritten) {
     return <span className="bg-yellow-200 bg-opacity-75 text-black px-2 p-0.5 rounded">{children}</span>;
   }
-  return <span className='px-2 p-0.5'>{children}</span>;
+  return <span className="px-2 p-0.5">{children}</span>;
 };
 
 
@@ -100,7 +101,7 @@ const HighlightedOption: React.FC<HighlightedOptionProps> = ({
   writtenQuestions,
   children,
   className,
-  isDisabled,
+  isDisabled: _isDisabled,
   isFocused,
   isSelected,
   innerRef,
@@ -111,7 +112,7 @@ const HighlightedOption: React.FC<HighlightedOptionProps> = ({
   return (
     <div
       ref={innerRef}
-      className={`${className} ${isFocused && !isSelected ? 'bg-blue-200' : ''} ${isSelected ? 'bg-blue-500 focus:bg-blue-700 text-white' : ''} p-2`}
+      className={`${className} ${isFocused && !isSelected ? "bg-blue-200" : ""} ${isSelected ? "bg-blue-500 focus:bg-blue-700 text-white" : ""} p-2`}
       {...innerProps}
     >
       <HighlightWrapper isCorrect={isCorrect} isWritten={isWritten}>
@@ -184,15 +185,17 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
         value={options.find(o => o.value === String(category))}
         onChange={(e) => {
           if (e) {
-            setSequence('A');
+            setSequence("A");
             setCategory(Number(e.value));
           }
         }} 
-        className='text-black mr-3.5 ml-2'
+        className="text-black mr-3.5 ml-2"
         components={{
           Option: (props) => (
             <HighlightedOption
               {...props}
+              // I'm not quite sure why this error is happening, something seems wrong in react-select?
+              // eslint-disable-next-line react/prop-types
               dataValue={props.data.value}
               isCategory={true}
               correctQuestions={correctQuestions}
@@ -202,6 +205,8 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
           SingleValue: (props) => (
             <HighlightedSingleValue
               {...props}
+              // I'm not quite sure why this error is happening, something seems wrong in react-select?
+              // eslint-disable-next-line react/prop-types
               dataValue={props.data.value}
               isCategory={true}
               correctQuestions={correctQuestions}
@@ -215,11 +220,13 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
         if (e) {
           setSequence(e.value);
         }
-      }} className='text-black ml-2'
+      }} className="text-black ml-2"
       components={{
         Option: (props) => (
           <HighlightedOption
             {...props}
+            // I'm not quite sure why this error is happening, something seems wrong in react-select?
+            // eslint-disable-next-line react/prop-types
             dataValue={props.data.value}
             isCategory={false}
             category={category}
@@ -230,6 +237,8 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
         SingleValue: (props) => (
           <HighlightedSingleValue
             {...props}
+            // I'm not quite sure why this error is happening, something seems wrong in react-select?
+            // eslint-disable-next-line react/prop-types
             dataValue={props.data.value}
             isCategory={false}
             category={category}

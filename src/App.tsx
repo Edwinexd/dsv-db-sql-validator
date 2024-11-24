@@ -15,39 +15,33 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Editor from 'react-simple-code-editor';
-import './App.css';
-import db_scheme_dark from './db_scheme_dark.png';
-import db_scheme_light from './db_scheme_light.png';
-import ResultTable from './ResultTable';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import Editor from "react-simple-code-editor";
+import "./App.css";
+import db_scheme_dark from "./db_scheme_dark.png";
+import db_scheme_light from "./db_scheme_light.png";
+import ResultTable from "./ResultTable";
 
-import QuestionSelector, { Question } from './QuestionSelector';
-import ExportRenderer from './ExportRenderer';
+import ExportRenderer from "./ExportRenderer";
+import QuestionSelector, { Question } from "./QuestionSelector";
 
-// @ts-ignore
-import { highlight, languages } from 'prismjs/components/prism-core';
-import 'prismjs/components/prism-sql';
-import 'prismjs/themes/prism.css';
-import { format } from 'sql-formatter';
+// @ts-expect-error - No types available
+import { highlight, languages } from "prismjs/components/prism-core";
+import "prismjs/components/prism-sql";
+import "prismjs/themes/prism.css";
+import { format } from "sql-formatter";
 import initSqlJs from "sql.js";
-import ViewsTable from './ViewsTable';
+import ViewsTable, { View } from "./ViewsTable";
 
-import sha256 from 'crypto-js/sha256';
-import questions from './questions.json';
-import { isCorrectResult, Result } from './utils';
-import ThemeToggle from './ThemeToggle';
-import useTheme from './useTheme';
-import { InformationCircleIcon } from '@heroicons/react/24/solid';
-import { toPng } from 'html-to-image';
-import PrivacyNoticeToggle from './PrivacyNoticeToggle';
-
-
-// Representing a view
-export interface View {
-  name: string;
-  query: string;
-}
+import { InformationCircleIcon } from "@heroicons/react/24/solid";
+import sha256 from "crypto-js/sha256";
+import { format as formatFns } from "date-fns";
+import { toPng } from "html-to-image";
+import PrivacyNoticeToggle from "./PrivacyNoticeToggle";
+import questions from "./questions.json";
+import ThemeToggle from "./ThemeToggle";
+import useTheme from "./useTheme";
+import { isCorrectResult, Result } from "./utils";
 
 const DEFAULT_QUERY = "SELECT * FROM student;";
 
@@ -77,8 +71,8 @@ function App() {
   const editorRef = useRef<Editor>(null);
 
   // QuestionSelector needs writtenQuestions and correctQuestions to be able to display the correct state
-  const [writtenQuestions, setWrittenQuestions] = useState<number[]>(localStorage.getItem('writtenQuestions') ? JSON.parse(localStorage.getItem('writtenQuestions')!) : []);
-  const [correctQuestions, setCorrectQuestions] = useState<number[]>(localStorage.getItem('correctQuestions') ? JSON.parse(localStorage.getItem('correctQuestions')!) : []);
+  const [writtenQuestions, setWrittenQuestions] = useState<number[]>(localStorage.getItem("writtenQuestions") ? JSON.parse(localStorage.getItem("writtenQuestions")!) : []);
+  const [correctQuestions, setCorrectQuestions] = useState<number[]>(localStorage.getItem("correctQuestions") ? JSON.parse(localStorage.getItem("correctQuestions")!) : []);
   
   const resetResult = useCallback(() => {
     setResult(undefined);
@@ -95,13 +89,13 @@ function App() {
         locateFile: (file) => `/dist/sql.js/${file}`,
       }
     );
-    const dataPromise = fetch('/data.sqlite').then((res) => res.arrayBuffer());
+    const dataPromise = fetch("/data.sqlite").then((res) => res.arrayBuffer());
     const [SQL, data] = await Promise.all([sqlPromise, dataPromise]);
     const db = new SQL.Database(new Uint8Array(data));
-    db.create_function('YEAR', (date: string) => new Date(date).getFullYear());
-    db.create_function('MONTH', (date: string) => new Date(date).getMonth() + 1);
-    db.create_function('DAY', (date: string) => new Date(date).getDate());
-    db.exec('PRAGMA foreign_keys = ON;');
+    db.create_function("YEAR", (date: string) => new Date(date).getFullYear());
+    db.create_function("MONTH", (date: string) => new Date(date).getMonth() + 1);
+    db.create_function("DAY", (date: string) => new Date(date).getDate());
+    db.exec("PRAGMA foreign_keys = ON;");
     setDatabase(db);
   }, [resetResult]);
 
@@ -113,22 +107,22 @@ function App() {
     if (!database || !question || query === undefined) {
       return;
     }
-    let writtenQuestions = JSON.parse(localStorage.getItem('writtenQuestions') || '[]');
+    let writtenQuestions = JSON.parse(localStorage.getItem("writtenQuestions") || "[]");
     const initialLength = writtenQuestions.length;
-    if (query === DEFAULT_QUERY || query === '') {
-      localStorage.removeItem('questionId-' + question.id);
+    if (query === DEFAULT_QUERY || query === "") {
+      localStorage.removeItem("questionId-" + question.id);
       // remove from writtenQuestions if it exists there as well
       const filtered = writtenQuestions.filter((id: number) => id !== question.id);
       writtenQuestions = filtered;
     } else {
-      localStorage.setItem('questionId-' + question.id, query);
+      localStorage.setItem("questionId-" + question.id, query);
       // ensure that questionid is in localstorage writtenQuestions
       if (!writtenQuestions.includes(question.id)) {
         writtenQuestions.push(question.id);
       }
     }
     if (writtenQuestions.length !== initialLength) {
-      localStorage.setItem('writtenQuestions', JSON.stringify(writtenQuestions));
+      localStorage.setItem("writtenQuestions", JSON.stringify(writtenQuestions));
       setWrittenQuestions(writtenQuestions);
     }
 
@@ -138,7 +132,7 @@ function App() {
       stmt.free();
       setError(null);
     } catch (e) {
-      // @ts-ignore
+      // @ts-expect-error - Error.message is a string
       setError(e.message);
     }
   }, [database, query, question]);
@@ -164,13 +158,13 @@ function App() {
 
 
     if (upsert) {
-      localStorage.setItem('views', JSON.stringify(fetchedViews));
+      localStorage.setItem("views", JSON.stringify(fetchedViews));
     }
 
     setViews(fetchedViews);
 
     // Recreate missing views
-    const storedViews = localStorage.getItem('views');
+    const storedViews = localStorage.getItem("views");
     if (storedViews) {
       const savedViews: View[] = JSON.parse(storedViews);
       const missingViews = savedViews.filter(
@@ -202,7 +196,7 @@ function App() {
       }
       refreshViews(true);
     } catch (e) {
-      // @ts-ignore
+      // @ts-expect-error - Error.message is a string
       setError(e.message);
     }
   }, [database, query, refreshViews]);
@@ -222,7 +216,7 @@ function App() {
       }
       return result;
     } catch (e) {
-      // @ts-ignore
+      // @ts-expect-error - Error.message is a string
       alert("Error occurred while evaluating SQL Query internally: " + e.message);
       return { columns: [], data: [] };
     }
@@ -245,7 +239,7 @@ function App() {
         setResult({columns: [], data: []});
       }
     } catch (e) {
-      // @ts-ignore
+      // @ts-expect-error - Error.message is a string
       setError(e.message);
     }
   }, [database]);
@@ -281,17 +275,17 @@ function App() {
     setCorrectQueryMismatch(false);
     setLoadedQuestionCorrect(true);
     
-    const correctQuestions = JSON.parse(localStorage.getItem('correctQuestions') || '[]');
+    const correctQuestions = JSON.parse(localStorage.getItem("correctQuestions") || "[]");
     if (!correctQuestions.includes(question.id)) {
       correctQuestions.push(question.id);
-      localStorage.setItem('correctQuestions', JSON.stringify(correctQuestions));
+      localStorage.setItem("correctQuestions", JSON.stringify(correctQuestions));
       setCorrectQuestions(correctQuestions);
     }
   }, [result, question, query, evaluatedQuery, exportingStatus]);
 
   // Save query based on question
   const loadQuery = useCallback((oldQuestion: Question | undefined, newQuestion: Question) => {
-    setQuery(localStorage.getItem('questionId-' + newQuestion.id) || DEFAULT_QUERY);
+    setQuery(localStorage.getItem("questionId-" + newQuestion.id) || DEFAULT_QUERY);
     // This prevents user from ctrl-z'ing to a different question
     if (editorRef.current) {
       editorRef.current!.session = {history: { stack: [], offset: 0 }};
@@ -313,87 +307,83 @@ function App() {
 
     setLoadedQuestionCorrect(true);
 
-    let currentQuery = '';
+    let currentQuery = "";
     try {
-      currentQuery = format(query + (query.endsWith(';') ? '' : ';'), {
-        language: 'sqlite',
+      currentQuery = format(query + (query.endsWith(";") ? "" : ";"), {
+        language: "sqlite",
         tabWidth: 2,
         useTabs: false,
-        keywordCase: 'upper',
-        dataTypeCase: 'upper',
-        functionCase: 'upper',
+        keywordCase: "upper",
+        dataTypeCase: "upper",
+        functionCase: "upper",
       });
-    } catch (e) {
+    } catch {
       setCorrectQueryMismatch(true);
       return;
     }
-    const correctQueryFormatted = format(correctQuery + (correctQuery?.endsWith(';') ? '' : ';'), {
-      language: 'sqlite',
+    const correctQueryFormatted = format(correctQuery + (correctQuery?.endsWith(";") ? "" : ";"), {
+      language: "sqlite",
       tabWidth: 2,
       useTabs: false,
-      keywordCase: 'upper',
-      dataTypeCase: 'upper',
-      functionCase: 'upper',
+      keywordCase: "upper",
+      dataTypeCase: "upper",
+      functionCase: "upper",
     });
-    if (currentQuery !== correctQueryFormatted) {
-      setCorrectQueryMismatch(true);
-    } else {
-      setCorrectQueryMismatch(false);
-    }
+    setCorrectQueryMismatch(currentQuery !== correctQueryFormatted);
   }, [database, question, query]);
 
   const exportData = useCallback(() => {
     if (!database) {
       return;
     }
-    let output = '';
-    output += '/* --- BEGIN Comments --- */\n';
+    let output = "";
+    output += "/* --- BEGIN Comments --- */\n";
     output += `-- This file was generated by SQL Validator at ${new Date().toISOString()}\n`;
-    output += '-- Do not edit this file manually as it may lead to data corruption!\n';
-    output += '-- If you wish to edit anything for your submission, do so in the application and export again.\n';
-    output += '/* --- END Comments --- */\n';
+    output += "-- Do not edit this file manually as it may lead to data corruption!\n";
+    output += "-- If you wish to edit anything for your submission, do so in the application and export again.\n";
+    output += "/* --- END Comments --- */\n";
 
-    output += '/* --- BEGIN DO NOT EDIT --- */\n';
+    output += "/* --- BEGIN DO NOT EDIT --- */\n";
 
-    output += '/* --- BEGIN Metadata --- */\n';
-    output += '/* --- BEGIN Save Format Version --- */\n';
-    output += '-- 2\n';
-    output += '/* --- END Save Format Version --- */\n';
-    output += '/* --- END Metadata --- */\n';
+    output += "/* --- BEGIN Metadata --- */\n";
+    output += "/* --- BEGIN Save Format Version --- */\n";
+    output += "-- 2\n";
+    output += "/* --- END Save Format Version --- */\n";
+    output += "/* --- END Metadata --- */\n";
 
-    output += '/* --- BEGIN Validation --- */\n';
+    output += "/* --- BEGIN Validation --- */\n";
 
-    output += '/* --- BEGIN Submission Summary --- */\n';
-    const writtenQueries = localStorage.getItem('correctQuestions') || '[]';
+    output += "/* --- BEGIN Submission Summary --- */\n";
+    const writtenQueries = localStorage.getItem("correctQuestions") || "[]";
     const parsed = JSON.parse(writtenQueries) as number[];
     const questionsString = parsed.map((id) => {
       const category = questions.find(c => c.questions.some(q => q.id === id))!;
       const question = category.questions.find(q => q.id === id)!;
       return { formatted: `${category.display_number}${question.display_sequence}`, number: category.display_number, sequence: question.display_sequence };
-    }).sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.formatted).join(', ');
+    }).sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.formatted).join(", ");
     output += `-- Written Questions: ${questionsString}\n`;
-    output += '/* --- END Submission Summary --- */\n';
+    output += "/* --- END Submission Summary --- */\n";
     if (views.length > 0) {
-      output += '/* --- BEGIN Views --- */\n';
+      output += "/* --- BEGIN Views --- */\n";
       const viewsString = views.map(view => {
         let out = format(view.query, {
-          language: 'sqlite',
+          language: "sqlite",
           tabWidth: 2,
           useTabs: false,
-          keywordCase: 'upper',
-          dataTypeCase: 'upper',
-          functionCase: 'upper',
+          keywordCase: "upper",
+          dataTypeCase: "upper",
+          functionCase: "upper",
         });
-        out += (view.query.endsWith(';') ? '' : ';')
+        out += (view.query.endsWith(";") ? "" : ";")
         out = `/* --- BEGIN View ${view.name} --- */\n${out}\n/* --- END View ${view.name} --- */`;
         return out;
-      }).join('\n');
-      output += viewsString + '\n';
-      output += '/* --- END Views --- */\n';
+      }).join("\n");
+      output += viewsString + "\n";
+      output += "/* --- END Views --- */\n";
     }
-    output += '/* --- BEGIN Submission Queries --- */\n';
+    output += "/* --- BEGIN Submission Queries --- */\n";
 
-    const queries = localStorage.getItem('correctQuestions');
+    const queries = localStorage.getItem("correctQuestions");
     if (queries) {
       const parsed = JSON.parse(queries) as number[];
       const sorted = parsed.map((id) => {
@@ -401,97 +391,91 @@ function App() {
         const question = category.questions.find(q => q.id === id)!;
         return { category, question };
       }).map(({ category, question }) => { return { number: category.display_number, sequence: question.display_sequence, id: question.id }})
-      .sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.id);
+        .sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.id);
       const questionQueries = sorted.map((id: number) => {
         const category = questions.find(c => c.questions.some(q => q.id === id))!;
         const question = category.questions.find(q => q.id === id)!;
-        const activeQuery = localStorage.getItem('correctQuestionId-' + id);
+        const activeQuery = localStorage.getItem("correctQuestionId-" + id);
         if (!activeQuery) {
-          return '';
+          return "";
         }
         let formatted = `/* --- BEGIN Question ${category.display_number}${question.display_sequence} (REFERENCE: ${question.id}) --- */\n`;
-        formatted += format(activeQuery + (activeQuery.endsWith(';') ? '' : ';'), {
-          language: 'sqlite',
+        formatted += format(activeQuery + (activeQuery.endsWith(";") ? "" : ";"), {
+          language: "sqlite",
           tabWidth: 2,
           useTabs: false,
-          keywordCase: 'upper',
-          dataTypeCase: 'upper',
-          functionCase: 'upper',
+          keywordCase: "upper",
+          dataTypeCase: "upper",
+          functionCase: "upper",
         });
         formatted += `\n/* --- END Question ${category.display_number}${question.display_sequence} (REFERENCE: ${question.id}) --- */`;
         return formatted;
-      }).join('\n');
+      }).join("\n");
       output += questionQueries;
-      output += '\n';
+      output += "\n";
     }
-    output += '/* --- END Submission Queries --- */\n';
+    output += "/* --- END Submission Queries --- */\n";
     
-    output += '/* --- BEGIN Save Summary --- */\n';
-    const existingQueries = localStorage.getItem('writtenQuestions') || '[]';
+    output += "/* --- BEGIN Save Summary --- */\n";
+    const existingQueries = localStorage.getItem("writtenQuestions") || "[]";
     const existingParsed = JSON.parse(existingQueries) as number[];
     const existingQuestions = existingParsed.map((id) => {
       const category = questions.find(c => c.questions.some(q => q.id === id))!;
       const question = category.questions.find(q => q.id === id)!;
       return { formatted: `${category.display_number}${question.display_sequence}`, number: category.display_number, sequence: question.display_sequence };
-    }).sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.formatted).join(', ');
+    }).sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.formatted).join(", ");
     output += `-- Written Questions: ${existingQuestions}\n`;
-    output += '/* --- END Save Summary --- */\n';
-    output += '/* --- BEGIN Raw Queries --- */\n';
-    output += '/*\n'
-    const allQueries = localStorage.getItem('writtenQuestions');
+    output += "/* --- END Save Summary --- */\n";
+    output += "/* --- BEGIN Raw Queries --- */\n";
+    output += "/*\n"
+    const allQueries = localStorage.getItem("writtenQuestions");
     if (allQueries) {
       const parsed = JSON.parse(allQueries);
       const queries: { [key: number]: string } = {};
       for (const id of parsed) {
-        const activeQuery = localStorage.getItem('questionId-' + id);
+        const activeQuery = localStorage.getItem("questionId-" + id);
         if (!activeQuery) {
           continue;
         }
         queries[id] = activeQuery;
       }
-      output += JSON.stringify(queries, null, 0).replace(/\*\//g, '\\*/');
+      output += JSON.stringify(queries, null, 0).replace(/\*\//g, "\\*/");
     }
-    output += '\n*/\n'
-    output += '/* --- END Raw Queries --- */\n';
-    output += '/* --- BEGIN Correct Raw Queries --- */\n';
-    output += '/*\n'
-    const allCorrectQueries = localStorage.getItem('correctQuestions');
+    output += "\n*/\n"
+    output += "/* --- END Raw Queries --- */\n";
+    output += "/* --- BEGIN Correct Raw Queries --- */\n";
+    output += "/*\n"
+    const allCorrectQueries = localStorage.getItem("correctQuestions");
     if (allCorrectQueries) {
       const parsed = JSON.parse(allCorrectQueries);
       const queries: { [key: number]: string } = {};
       for (const id of parsed) {
-        const activeQuery = localStorage.getItem('correctQuestionId-' + id);
+        const activeQuery = localStorage.getItem("correctQuestionId-" + id);
         if (!activeQuery) {
           continue;
         }
         queries[id] = activeQuery;
       }
-      output += JSON.stringify(queries, null, 0).replace(/\*\//g, '\\*/');
+      output += JSON.stringify(queries, null, 0).replace(/\*\//g, "\\*/");
     }
-    output += '\n*/\n'
-    output += '/* --- END Correct Raw Queries --- */\n';
-    output += '/* --- BEGIN Raw List Dumps --- */\n';
-    output += '-- ' + (localStorage.getItem('writtenQuestions') === null ? '[]' : localStorage.getItem('writtenQuestions')) + '\n';
-    output += '-- ' + (localStorage.getItem('correctQuestions') === null ? '[]' : localStorage.getItem('correctQuestions')) + '\n';
-    output += '/* --- END Raw List Dumps --- */\n';
+    output += "\n*/\n"
+    output += "/* --- END Correct Raw Queries --- */\n";
+    output += "/* --- BEGIN Raw List Dumps --- */\n";
+    output += "-- " + (localStorage.getItem("writtenQuestions") === null ? "[]" : localStorage.getItem("writtenQuestions")) + "\n";
+    output += "-- " + (localStorage.getItem("correctQuestions") === null ? "[]" : localStorage.getItem("correctQuestions")) + "\n";
+    output += "/* --- END Raw List Dumps --- */\n";
 
-    output += '/* --- END Validation --- */\n';
+    output += "/* --- END Validation --- */\n";
     // Calculate hash of everything within the validation block
-    const hashValue = sha256(output.slice(output.indexOf('/* --- BEGIN Validation Block --- */'), output.indexOf('/* --- END Validation Block --- */')));
+    const hashValue = sha256(output.slice(output.indexOf("/* --- BEGIN Validation Block --- */"), output.indexOf("/* --- END Validation Block --- */")));
     output += `/* --- BEGIN Hash --- */\n-- ${hashValue}\n/* --- END Hash --- */\n`;
-    output += '/* --- END DO NOT EDIT --- */\n';
+    output += "/* --- END DO NOT EDIT --- */\n";
 
-    const blob = new Blob([output], { type: 'text/sql' });
+    const blob = new Blob([output], { type: "text/sql" });
     const url = URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
-    const now = new Date();
-    const formattedTimestamp = `${now.getFullYear()}${(now.getMonth() + 1)
-    .toString()
-    .padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now
-      .getHours()
-      .toString()
-      .padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+    const a = document.createElement("a");
+    const formattedTimestamp = formatFns(new Date(), "yyyyMMdd_HHmm");
     a.href = url;
     a.download = `validator_${formattedTimestamp}.sql`;;
     document.body.appendChild(a);
@@ -504,25 +488,25 @@ function App() {
   const upsertData = useCallback((data: string) => {
     // Extract raw queries
     const rawQueries = data.match(/\/\*\s--- BEGIN Raw Queries --- \*\/\n\/\*\n([\s\S]*?)\n\*\/\n\/\*\s--- END Raw Queries --- \*\//)![1];
-    const parsedQueries: { [key: string]: string } = JSON.parse(rawQueries.replace(/\\\*\//g, '*/'));
+    const parsedQueries: { [key: string]: string } = JSON.parse(rawQueries.replace(/\\\*\//g, "*/"));
 
     // Correct raw queries
     const correctRawQueries = data.match(/\/\*\s--- BEGIN Correct Raw Queries --- \*\/\n\/\*\n([\s\S]*?)\n\*\/\n\/\*\s--- END Correct Raw Queries --- \*\//)![1];
-    const parsedCorrectQueries: { [key: string]: string } = JSON.parse(correctRawQueries.replace(/\\\*\//g, '*/'));
+    const parsedCorrectQueries: { [key: string]: string } = JSON.parse(correctRawQueries.replace(/\\\*\//g, "*/"));
     
     // Clear current data
-    const writtenQuestions: number[] = JSON.parse(localStorage.getItem('writtenQuestions') || '[]');
+    const writtenQuestions: number[] = JSON.parse(localStorage.getItem("writtenQuestions") || "[]");
     writtenQuestions.forEach(id => {
       localStorage.removeItem(`questionId-${id}`);
     });
 
-    const correctQuestions: number[] = JSON.parse(localStorage.getItem('correctQuestions') || '[]');
+    const correctQuestions: number[] = JSON.parse(localStorage.getItem("correctQuestions") || "[]");
     correctQuestions.forEach(id => {
       localStorage.removeItem(`correctQuestionId-${id}`);
     });
 
-    localStorage.removeItem('writtenQuestions');
-    localStorage.removeItem('correctQuestions');
+    localStorage.removeItem("writtenQuestions");
+    localStorage.removeItem("correctQuestions");
     
     // Insert new data
     for (const [key, value] of Object.entries(parsedQueries)) {
@@ -544,14 +528,14 @@ function App() {
     const newCorrectQuestions = JSON.parse(rawLists[2]);
     setWrittenQuestions(newWrittenQuestions);
     setCorrectQuestions(newCorrectQuestions);
-    localStorage.setItem('writtenQuestions', JSON.stringify(newWrittenQuestions));
-    localStorage.setItem('correctQuestions', JSON.stringify(newCorrectQuestions));
+    localStorage.setItem("writtenQuestions", JSON.stringify(newWrittenQuestions));
+    localStorage.setItem("correctQuestions", JSON.stringify(newCorrectQuestions));
     
     // Upsert views
     // Delete all current views
-    views.forEach(view => {
+    for (const view of views) {
       database!.exec(`DROP VIEW ${view.name}`);
-    });
+    }
 
     const viewsBlock = data.match(/\/\*\s--- BEGIN Views --- \*\/\n([\s\S]*?)\n\/\*\s--- END Views --- \*\//);
     if (viewsBlock) {
@@ -562,19 +546,20 @@ function App() {
         const viewQuery = view.match(/\/\*\s--- BEGIN View (.*) --- \*\/\n([\s\S]*?)\n\/\*\s--- END View (.*) --- \*\//)![2];
         database!.exec(viewQuery);
       }
-      refreshViews(true);
     }
+
+    refreshViews(true);
   }, [database, question, refreshViews, views]);
 
   const importData = useCallback(() => {
     // Confirm that the user wants to import data, it will overwrite the current data
-    if (!window.confirm('Are you sure you want to import data?\n\nNote: This will overwrite your current data.')) {
+    if (!window.confirm("Are you sure you want to import data?\n\nNote: This will overwrite your current data.")) {
       return;
     }
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.sql';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".sql";
     input.onchange = async (e) => {
       const target = e.target as HTMLInputElement;
       if (!target.files || target.files.length === 0) {
@@ -583,7 +568,7 @@ function App() {
       const file = target.files[0];
       const reader = new FileReader();
       reader.onload = async (e) => {
-        if (!e.target || typeof e.target.result !== 'string') {
+        if (!e.target || typeof e.target.result !== "string") {
           return;
         }
         const data = e.target.result;
@@ -600,13 +585,13 @@ function App() {
   // Overriding default behavior for ctrl+s to call exportData instead
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+      if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         exportData();
       }
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [exportData]);
 
   // Png exports
@@ -652,7 +637,7 @@ function App() {
         height: exportRendererRef.current.clientHeight,
         pixelRatio: 1 
       }).then((dataUrl) => {
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.download = `validator_${exportView.name}.png`;
         link.href = dataUrl;
         link.click();
@@ -675,14 +660,14 @@ function App() {
       height: exportRenderer.clientHeight,
       pixelRatio: 1 
     }).then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = `validator_${question.id}_${question.category.display_number}${question.display_sequence}.png`;
-        link.href = dataUrl;
-        link.click();
-        setExportQuestion(undefined);
-        setExportQuery(undefined);
-        setExportingStatus(0)
-      }
+      const link = document.createElement("a");
+      link.download = `validator_${question.id}_${question.category.display_number}${question.display_sequence}.png`;
+      link.href = dataUrl;
+      link.click();
+      setExportQuestion(undefined);
+      setExportQuery(undefined);
+      setExportingStatus(0)
+    }
     );
   }, [evaluatedQuery, exportQuery, exportRendererRef, getTheme, isDarkMode, exportingStatus, question, resetResult, setTheme, exportQuestion, exportView]);
 
@@ -691,19 +676,19 @@ function App() {
       {exportQuestion && exportQuery && <ExportRenderer query={{isCorrect: isCorrectResult(exportQuestion.evaluable_result, evalSql(exportQuery)), question: exportQuestion, code: exportQuery, result: evalSql(exportQuery)}} ref={exportRendererRef} />}
       {exportView && <ExportRenderer view={{view: exportView, result: evalSql(`SELECT * FROM ${exportView.name}`)}} ref={exportRendererRef} />}
       <header className="App-header">
-        <div className='my-2'></div>
+        <div className="my-2"></div>
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
-        <h1 className='text-6xl font-semibold my-3'>SQL Validator</h1>
+        <h1 className="text-6xl font-semibold my-3">SQL Validator</h1>
         <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
         <QuestionSelector writtenQuestions={writtenQuestions} correctQuestions={correctQuestions} onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
-        <p className='break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2'>{question?.description || 'Select a question to get started!'}</p>
+        <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2">{question?.description || "Select a question to get started!"}</p>
         {query === undefined ? 
           <Editor
-            id='placeholder-editor'
-            itemID='placeholder-editor'
+            id="placeholder-editor"
+            itemID="placeholder-editor"
             value={"-- Select a question to get started!"}
             disabled={true}
-            onValueChange={code => null}
+            onValueChange={_code => null}
             highlight={code => highlight(code, languages.sql)}
             padding={10}
             tabSize={2}
@@ -712,8 +697,8 @@ function App() {
           />
           : 
           <Editor
-            id='editor'
-            itemID='editor'
+            id="editor"
+            itemID="editor"
             value={query}
             onValueChange={code => setQuery(code)}
             highlight={code => highlight(code, languages.sql)}
@@ -723,42 +708,42 @@ function App() {
             ref={editorRef}
           />
         }
-        {error && <p className='font-mono text-red-500 max-w-4xl break-all'>{error}</p>}
+        {error && <p className="font-mono text-red-500 max-w-4xl break-all">{error}</p>}
         {correctQueryMismatch &&
-            <p className='font-mono text-yellow-500 max-w-4xl break-all'>Query Mismatch! 
+            <p className="font-mono text-yellow-500 max-w-4xl break-all">Query Mismatch! 
               <span
-                className='text-yellow-500'
+                className="text-yellow-500"
                 title="The current SQL query does not match the one that will be exported. The current version has either not been evaluated or gives an incorrect result. Please run the new query to register it as correct or use load saved to run the currently marked correct query."
               >
-                <InformationCircleIcon className='h-5 w-5 inline-block ml-1' />
+                <InformationCircleIcon className="h-5 w-5 inline-block ml-1" />
               </span>
-          </p>
+            </p>
         }
-        <div className='flex flex-wrap justify-center text-base max-w-xl'>
-          <button onClick={runQuery} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>Run Query</button>
+        <div className="flex flex-wrap justify-center text-base max-w-xl">
+          <button onClick={runQuery} disabled={!(error === null) || query === undefined} className="bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40" type="submit">Run Query</button>
           <button onClick={() => {
             if (!query) {
               return;
             }
             setQuery(format(query, {
-              language: 'sqlite',
+              language: "sqlite",
               tabWidth: 2,
               useTabs: false,
-              keywordCase: 'upper',
-              dataTypeCase: 'upper',
-              functionCase: 'upper',
-          }))}} disabled={!(error === null) || query === undefined} className='bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>
+              keywordCase: "upper",
+              dataTypeCase: "upper",
+              functionCase: "upper",
+            }))}} disabled={!(error === null) || query === undefined} className="bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40" type="submit">
             Format Code
           </button>
           <button onClick={() => {
-              if (!question) {
-                return;
-              }
-              setQuery(localStorage.getItem(`correctQuestionId-${question.id}`) || DEFAULT_QUERY);
-            }} 
-            disabled={!correctQueryMismatch || !question}
-            className='bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40' type='submit'>
-              Load Saved
+            if (!question) {
+              return;
+            }
+            setQuery(localStorage.getItem(`correctQuestionId-${question.id}`) || DEFAULT_QUERY);
+          }} 
+          disabled={!correctQueryMismatch || !question}
+          className="bg-yellow-500 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40" type="submit">
+            Load Saved
           </button>
           {/* Might be removed fully, servers no purpose as it is right now */}
           {/*
@@ -768,9 +753,9 @@ function App() {
             }
             }} className='bg-red-500 hover:bg-red-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Reset DB</button>
           */}
-          <button onClick={exportImageQuery} className='bg-green-500 hover:bg-green-700 disabled:bg-green-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit' disabled={!loadedQuestionCorrect}>Export PNG</button>
-          <button onClick={exportData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Export Data</button>
-          <button onClick={importData} className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40' type='submit'>Import Data</button>
+          <button onClick={exportImageQuery} className="bg-green-500 hover:bg-green-700 disabled:bg-green-400 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40" type="submit" disabled={!loadedQuestionCorrect}>Export PNG</button>
+          <button onClick={exportData} className="bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40" type="submit">Export Data</button>
+          <button onClick={importData} className="bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 mt-4 rounded mr-3 w-40" type="submit">Import Data</button>
         </div>
 
         <button 
@@ -780,21 +765,21 @@ function App() {
             }
             setDisplayViewsTable(!showViewsTable)
           }} 
-          className='bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40'
+          className="bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40"
         >
-          {showViewsTable ? 'Hide Views' : 'Show Views'}
+          {showViewsTable ? "Hide Views" : "Show Views"}
         </button>
         {showViewsTable && (
           <>
             <ViewsTable 
               views={views} 
               onRemoveView={(name) => deleteView(name)} 
-              onViewRequest={(name) => { getViewResult(name); }} 
+              onViewRequest={(name) => getViewResult(name)} 
               currentlyQuriedView={queryedView}
               onViewHideRequest={() => resetResult()}
               onViewExportRequest={(name) => exportImageView(name)}
             />
-            <div className='my-4'></div>
+            <div className="my-4"></div>
           </>
         )}
         
@@ -805,7 +790,7 @@ function App() {
             {isCorrect ? <>
               <h2 className="text-3xl font-semibold text-green-500">Matching Result!</h2>
               <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... but it may not be correct! Make sure that all joins are complete and that the query only uses information from the assignment before exporting.</p>
-              </> : isCorrect === undefined ? 
+            </> : isCorrect === undefined ? 
               <h2 className="text-3xl font-semibold text-blue-500">No result yet!</h2>
               :
               <h2 className="text-3xl font-semibold text-red-500">Wrong result!</h2>
@@ -831,22 +816,22 @@ function App() {
             {/* <h2 className="text-3xl font-semibold">Query for {queryedView}</h2> */}
             <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the query for view {queryedView}.</p>
             <Editor
-                readOnly={true}
-                value={format(
-                  views.find(view => view.name === queryedView) ? views.find(view => view.name === queryedView)!.query : '-- View Deleted', {
-                    language: 'sqlite',
-                    tabWidth: 2,
-                    useTabs: false,
-                    keywordCase: 'upper',
-                    dataTypeCase: 'upper',
-                    functionCase: 'upper',
+              readOnly={true}
+              value={format(
+                views.find(view => view.name === queryedView) ? views.find(view => view.name === queryedView)!.query : "-- View Deleted", {
+                  language: "sqlite",
+                  tabWidth: 2,
+                  useTabs: false,
+                  keywordCase: "upper",
+                  dataTypeCase: "upper",
+                  functionCase: "upper",
                 })}
-                onValueChange={() => null}
-                highlight={code => highlight(code, languages.sql)}
-                padding={10}
-                tabSize={4}
-                className="font-mono text-xl w-full dark:bg-slate-800 bg-slate-200 border-2 max-w-4xl min-h-40 border-none my-2"
-              />
+              onValueChange={() => null}
+              highlight={code => highlight(code, languages.sql)}
+              padding={10}
+              tabSize={4}
+              className="font-mono text-xl w-full dark:bg-slate-800 bg-slate-200 border-2 max-w-4xl min-h-40 border-none my-2"
+            />
             {/* <h2 className="text-3xl font-semibold">Result of {queryedView}</h2> */}
             <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... and this is the result of querying it with SELECT * FROM {queryedView};</p>
             <div className="overflow-x-auto max-w-full">

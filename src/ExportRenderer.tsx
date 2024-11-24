@@ -1,89 +1,91 @@
-import React from 'react';
-import Editor from 'react-simple-code-editor';
-import { format } from 'sql-formatter';
-// @ts-ignore
-import { highlight, languages } from 'prismjs/components/prism-core';
-import { Result } from './utils';
-import ResultTable from './ResultTable';
-import { Question } from './QuestionSelector';
-import { View } from './App';
+import React from "react";
+import Editor from "react-simple-code-editor";
+import { format } from "sql-formatter";
+// @ts-expect-error - No types available
+import { highlight, languages } from "prismjs/components/prism-core";
+import { Result } from "./utils";
+import ResultTable from "./ResultTable";
+import { Question } from "./QuestionSelector";
+import { View } from "./App";
 
 interface ExportRendererProps {
-    query?: {
-        question: Question;
-        isCorrect: boolean;
-        code: string;
-        result: Result;
-    };
-    view?: {
-        view: View;
-        result: Result;
-    };
+  query?: {
+    question: Question;
+    isCorrect: boolean;
+    code: string;
+    result: Result;
+  };
+  view?: {
+    view: View;
+    result: Result;
+  };
 }
 
 const ExportRenderer = React.forwardRef<HTMLDivElement, ExportRendererProps>(({ query, view }, ref) => {
-    if (!query && !view) {
-        return null;
-    }
-    if (query && view) {
-        return null;
-    }
+  if (!query && !view) {
+    return null;
+  }
+  if (query && view) {
+    return null;
+  }
 
-    return (
-        // intentionally fixed width since we render a png of it
-        <div style={{ backgroundColor: "#efefef", color: "#313131" }} className="flex flex-col items-center p-16 w-[64rem]" ref={ref}>
-            {query && 
+  return (
+  // intentionally fixed width since we render a png of it
+    <div style={{ backgroundColor: "#efefef", color: "#313131" }} className="flex flex-col items-center p-16 w-[64rem]" ref={ref}>
+      {query && 
                 <>
-                    <div className="flex my-3 text-xl font-semibold space-x-4">
-                        <span className="text-gray-700">Question:</span>
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{query.question.category.display_number}</span>
-                        <span className="text-gray-700">Variant:</span>
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{query.question.display_sequence}</span>
-                    </div>
-                    <h2 className="text-3xl font-semibold">{query.question.description}</h2>
-                    <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the code for {query.question.category.display_number}{query.question.display_sequence}:</p>
+                  <div className="flex my-3 text-xl font-semibold space-x-4">
+                    <span className="text-gray-700">Question:</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{query.question.category.display_number}</span>
+                    <span className="text-gray-700">Variant:</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{query.question.display_sequence}</span>
+                  </div>
+                  <h2 className="text-3xl font-semibold">{query.question.description}</h2>
+                  <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the code for {query.question.category.display_number}{query.question.display_sequence}:</p>
                 </>
-            }
-            {view && 
+      }
+      {view && 
                 <>
-                    <h2 className='text-3xl font-semibold mb-3.5'>View <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{view.view.name}</span></h2>
-                    <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the query for view {view.view.name}:</p>
+                  <h2 className="text-3xl font-semibold mb-3.5">View <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{view.view.name}</span></h2>
+                  <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">This is the query for view {view.view.name}:</p>
                 </>
-            }
-            <Editor
-                readOnly={true}
-                value={format(
-                    query ? query.code : view!.view.query, {
-                    language: 'sqlite',
-                    tabWidth: 2,
-                    useTabs: false,
-                    keywordCase: 'upper',
-                    dataTypeCase: 'upper',
-                    functionCase: 'upper',
-                })}
-                onValueChange={() => null}
-                highlight={code => highlight(code, languages.sql)}
-                padding={10}
-                tabSize={4}
-                className="font-mono text-xl w-full bg-slate-200 border-2 max-w-4xl min-h-40 border-none my-2"
-            />
-            {query && 
+      }
+      <Editor
+        readOnly={true}
+        value={format(
+          query ? query.code : view!.view.query, {
+            language: "sqlite",
+            tabWidth: 2,
+            useTabs: false,
+            keywordCase: "upper",
+            dataTypeCase: "upper",
+            functionCase: "upper",
+          })}
+        onValueChange={() => null}
+        highlight={code => highlight(code, languages.sql)}
+        padding={10}
+        tabSize={4}
+        className="font-mono text-xl w-full bg-slate-200 border-2 max-w-4xl min-h-40 border-none my-2"
+      />
+      {query && 
                 <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... and this is the result of executing the query:</p>
-            }
-            {view && 
+      }
+      {view && 
                 <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... and this is the result of querying it with SELECT * FROM {view.view.name};</p>
-            }
-            <div className="max-w-full mb-4">
-                <ResultTable result={
-                    query ? query.result : view!.result
-                } forceLight={true} />
-            </div>
-            {query &&
-                <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... which <span className={query.isCorrect ? 'text-green-600' : 'text-red-500'}>{query.isCorrect ? 'matches' : 'does not match'}</span> the expected result!</p>
-        }
-            <p className="text-xl font-semibold p-2">Generated by SQL Validator at {new Date().toISOString()}</p>
-        </div>
-    )
+      }
+      <div className="max-w-full mb-4">
+        <ResultTable result={
+          query ? query.result : view!.result
+        } forceLight={true} />
+      </div>
+      {query &&
+                <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... which <span className={query.isCorrect ? "text-green-600" : "text-red-500"}>{query.isCorrect ? "matches" : "does not match"}</span> the expected result!</p>
+      }
+      <p className="text-xl font-semibold p-2">Generated by SQL Validator at {new Date().toISOString()}</p>
+    </div>
+  )
 });
+
+ExportRenderer.displayName = "ExportRenderer";
 
 export default ExportRenderer;

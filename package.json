@@ -19,6 +19,7 @@
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",
     "crypto-js": "^4.2.0",
+    "date-fns": "^4.1.0",
     "html-to-image": "^1.11.11",
     "path": "^0.12.7",
     "prismjs": "^1.29.0",
@@ -64,8 +65,14 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
+    "@eslint/js": "^9.15.0",
+    "@stylistic/eslint-plugin": "^2.11.0",
     "copyfiles": "^2.4.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.2",
+    "globals": "^15.12.0",
     "npm-run-all": "^4.1.5",
-    "tailwindcss": "^3.4.4"
+    "tailwindcss": "^3.4.4",
+    "typescript-eslint": "^8.15.0"
   }
 }
