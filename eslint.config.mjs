@@ -34,6 +34,7 @@ export default [
       "quotes": ["error", "double", { avoidEscape: true }],
       "@stylistic/indent": ["error", 2],
       "@stylistic/jsx-quotes": ["error"],
+      "@stylistic/semi": ["error", "always"],
     }
   },
 ];

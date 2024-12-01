@@ -11,7 +11,7 @@ const cyrb53 = (str: string, seed = 0) => {
   h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
   h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
     
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0) // % 2**16;
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0); // % 2**16;
 };
 
 class MatchesResult {

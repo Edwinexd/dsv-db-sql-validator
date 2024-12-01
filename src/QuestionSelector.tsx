@@ -1,6 +1,6 @@
-import React, { useEffect } from "react"
-import Select from "react-select"
-import questions from "./questions.json"
+import React, { useEffect } from "react";
+import Select from "react-select";
+import questions from "./questions.json";
 import { Result } from "./utils";
 
 export interface Category {
@@ -147,12 +147,12 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
   const [question, setQuestion] = React.useState<Question>();
 
   useEffect(() => {
-    const categoryObj = questions.find(q => q.category_id === category)
+    const categoryObj = questions.find(q => q.category_id === category);
     if (!categoryObj) {
       return;
     }
-    setSequenceOptions(categoryObj.questions.map(q => { return { value: String(q.display_sequence), label: String(q.display_sequence) } }).flat())
-  }, [category])
+    setSequenceOptions(categoryObj.questions.map(q => { return { value: String(q.display_sequence), label: String(q.display_sequence) }; }).flat());
+  }, [category]);
 
   useEffect(() => {
     if (!category) {
@@ -162,26 +162,26 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
     if (question && question.display_sequence === sequence && question.category.id === category) {
       return;
     }
-    const categoryObj = questions.find(q => q.category_id === category)
+    const categoryObj = questions.find(q => q.category_id === category);
     if (!categoryObj) {
       return;
     }
-    const rawQuestionObj = categoryObj.questions.find(q => q.display_sequence === sequence)
+    const rawQuestionObj = categoryObj.questions.find(q => q.display_sequence === sequence);
     if (!rawQuestionObj) {
       return;
     }
 
-    const questionObj = {...rawQuestionObj, category: { id: category, display_number: String(category) }, evaluable_result: { columns: rawQuestionObj.result.columns, data: rawQuestionObj.result.values } }
+    const questionObj = {...rawQuestionObj, category: { id: category, display_number: String(category) }, evaluable_result: { columns: rawQuestionObj.result.columns, data: rawQuestionObj.result.values } };
     setQuestion(questionObj);
     onSelect(questionObj);
-  }, [sequence, category, question, onSelect])
+  }, [sequence, category, question, onSelect]);
 
-  const options = questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) } }).flat()
+  const options = questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) }; }).flat();
 
   return (
     <div className="flex flex-wrap my-3 text-xl font-semibold w-full max-w-4xl justify-center">
       <div className="flex">
-        Question: <Select options={questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) } }).flat()}
+        Question: <Select options={questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) }; }).flat()}
           value={options.find(o => o.value === String(category))}
           onChange={(e) => {
             if (e) {
@@ -253,7 +253,7 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
       </div>
 
     </div>
-  )
+  );
 
-}
+};
 export default QuestionSelector;

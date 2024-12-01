@@ -379,7 +379,7 @@ function App() {
           dataTypeCase: "upper",
           functionCase: "upper",
         });
-        out += (view.query.endsWith(";") ? "" : ";")
+        out += (view.query.endsWith(";") ? "" : ";");
         out = `/* --- BEGIN View ${view.name} --- */\n${out}\n/* --- END View ${view.name} --- */`;
         return out;
       }).join("\n");
@@ -395,7 +395,7 @@ function App() {
         const category = questions.find(c => c.questions.some(q => q.id === id))!;
         const question = category.questions.find(q => q.id === id)!;
         return { category, question };
-      }).map(({ category, question }) => { return { number: category.display_number, sequence: question.display_sequence, id: question.id }})
+      }).map(({ category, question }) => { return { number: category.display_number, sequence: question.display_sequence, id: question.id };})
         .sort((a, b) => a.sequence.localeCompare(b.sequence)).sort((a, b) => a.number - b.number).map(q => q.id);
       const questionQueries = sorted.map((id: number) => {
         const category = questions.find(c => c.questions.some(q => q.id === id))!;
@@ -432,7 +432,7 @@ function App() {
     output += `-- Written Questions: ${existingQuestions}\n`;
     output += "/* --- END Save Summary --- */\n";
     output += "/* --- BEGIN Raw Queries --- */\n";
-    output += "/*\n"
+    output += "/*\n";
     const allQueries = localStorage.getItem("writtenQuestions");
     if (allQueries) {
       const parsed = JSON.parse(allQueries);
@@ -446,10 +446,10 @@ function App() {
       }
       output += JSON.stringify(queries, null, 0).replace(/\*\//g, "\\*/");
     }
-    output += "\n*/\n"
+    output += "\n*/\n";
     output += "/* --- END Raw Queries --- */\n";
     output += "/* --- BEGIN Correct Raw Queries --- */\n";
-    output += "/*\n"
+    output += "/*\n";
     const allCorrectQueries = localStorage.getItem("correctQuestions");
     if (allCorrectQueries) {
       const parsed = JSON.parse(allCorrectQueries);
@@ -463,7 +463,7 @@ function App() {
       }
       output += JSON.stringify(queries, null, 0).replace(/\*\//g, "\\*/");
     }
-    output += "\n*/\n"
+    output += "\n*/\n";
     output += "/* --- END Correct Raw Queries --- */\n";
     output += "/* --- BEGIN Raw List Dumps --- */\n";
     output += "-- " + (localStorage.getItem("writtenQuestions") === null ? "[]" : localStorage.getItem("writtenQuestions")) + "\n";
@@ -671,7 +671,7 @@ function App() {
       link.click();
       setExportQuestion(undefined);
       setExportQuery(undefined);
-      setExportingStatus(0)
+      setExportingStatus(0);
     }
     );
   }, [evaluatedQuery, exportQuery, exportRendererRef, getTheme, isDarkMode, exportingStatus, question, resetResult, setTheme, exportQuestion, exportView]);
@@ -685,7 +685,7 @@ function App() {
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className="text-6xl font-semibold my-3">SQL Validator</h1>
         <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
-        <QuestionSelector writtenQuestions={writtenQuestions} correctQuestions={correctQuestions} onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion)}}></QuestionSelector>
+        <QuestionSelector writtenQuestions={writtenQuestions} correctQuestions={correctQuestions} onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion);}}></QuestionSelector>
         <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2">{question?.description || "Select a question to get started!"}</p>
         {query === undefined ? 
           <Editor
@@ -737,7 +737,7 @@ function App() {
               keywordCase: "upper",
               dataTypeCase: "upper",
               functionCase: "upper",
-            }))}} disabled={!(error === null) || query === undefined} className="bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40" type="submit">
+            }));}} disabled={!(error === null) || query === undefined} className="bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 disabled:opacity-50 text-white text-xl font-semibold py-2 px-4 mt-3.5 rounded mr-3 w-40" type="submit">
             Format Code
           </button>
           <button onClick={() => {
@@ -768,7 +768,7 @@ function App() {
             if (showViewsTable && queryedView) {
               resetResult();
             }
-            setDisplayViewsTable(!showViewsTable)
+            setDisplayViewsTable(!showViewsTable);
           }} 
           className="bg-blue-500 hover:bg-blue-700 text-white text-xl font-semibold py-2 px-4 my-4 rounded mr-3 w-40"
         >

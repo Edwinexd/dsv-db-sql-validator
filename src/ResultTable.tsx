@@ -12,7 +12,7 @@ const ResultTable: React.FC<ResultTableProps> = ({ result, forceLight }) => {
       return "";
     }
     return className;
-  }
+  };
 
 
   const columns = result.columns;
