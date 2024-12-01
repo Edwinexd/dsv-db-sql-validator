@@ -248,6 +248,11 @@ function App() {
     if (!database) {
       return;
     }
+
+    if (!window.confirm(`Are you sure you want to delete view ${name}?`)) {
+      return;
+    }
+
     database.exec(`DROP VIEW ${name}`);
     refreshViews(true);
 
