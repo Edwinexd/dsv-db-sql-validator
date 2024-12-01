@@ -41,7 +41,9 @@ const ResultTable: React.FC<ResultTableProps> = ({ result, forceLight }) => {
           {data.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={i + "-" + j} className={`border ${maybeRemoveDark("dark:border-slate-600")} px-4 py-2`}>{cell}</td>
+                <td key={i + "-" + j} className={`border ${maybeRemoveDark("dark:border-slate-600")} px-4 py-2`}>
+                  {cell !== null ? <span>{cell}</span> : <span className="italic" title="NULL: No value">NULL</span>}
+                </td>
               ))}
             </tr>
           ))}
