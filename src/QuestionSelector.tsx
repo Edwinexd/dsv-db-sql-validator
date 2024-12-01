@@ -179,16 +179,50 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
   const options = questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) } }).flat()
 
   return (
-    <div className="flex my-3 text-xl font-semibold">
-      Question: <Select options={questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) } }).flat()}
-        value={options.find(o => o.value === String(category))}
-        onChange={(e) => {
+    <div className="flex flex-wrap my-3 text-xl font-semibold w-full max-w-4xl justify-center">
+      <div className="flex">
+        Question: <Select options={questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) } }).flat()}
+          value={options.find(o => o.value === String(category))}
+          onChange={(e) => {
+            if (e) {
+              setSequence("A");
+              setCategory(Number(e.value));
+            }
+          }} 
+          className="text-black mr-3.5 ml-2"
+          components={{
+            Option: (props) => (
+              <HighlightedOption
+                {...props}
+                // I'm not quite sure why this error is happening, something seems wrong in react-select?
+                // eslint-disable-next-line react/prop-types
+                dataValue={props.data.value}
+                isCategory={true}
+                correctQuestions={correctQuestions}
+                writtenQuestions={writtenQuestions}
+              />
+            ),
+            SingleValue: (props) => (
+              <HighlightedSingleValue
+                {...props}
+                // I'm not quite sure why this error is happening, something seems wrong in react-select?
+                // eslint-disable-next-line react/prop-types
+                dataValue={props.data.value}
+                isCategory={true}
+                correctQuestions={correctQuestions}
+                writtenQuestions={writtenQuestions}
+              />
+            ),
+          }}
+        
+        />
+      </div>
+      <div className="flex">
+        Variant: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
           if (e) {
-            setSequence("A");
-            setCategory(Number(e.value));
+            setSequence(e.value);
           }
-        }} 
-        className="text-black mr-3.5 ml-2"
+        }} className="text-black ml-2"
         components={{
           Option: (props) => (
             <HighlightedOption
@@ -196,7 +230,8 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
               // I'm not quite sure why this error is happening, something seems wrong in react-select?
               // eslint-disable-next-line react/prop-types
               dataValue={props.data.value}
-              isCategory={true}
+              isCategory={false}
+              category={category}
               correctQuestions={correctQuestions}
               writtenQuestions={writtenQuestions}
             />
@@ -207,46 +242,15 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
               // I'm not quite sure why this error is happening, something seems wrong in react-select?
               // eslint-disable-next-line react/prop-types
               dataValue={props.data.value}
-              isCategory={true}
+              isCategory={false}
+              category={category}
               correctQuestions={correctQuestions}
               writtenQuestions={writtenQuestions}
             />
           ),
         }}
-        
-      />
-      Variant: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
-        if (e) {
-          setSequence(e.value);
-        }
-      }} className="text-black ml-2"
-      components={{
-        Option: (props) => (
-          <HighlightedOption
-            {...props}
-            // I'm not quite sure why this error is happening, something seems wrong in react-select?
-            // eslint-disable-next-line react/prop-types
-            dataValue={props.data.value}
-            isCategory={false}
-            category={category}
-            correctQuestions={correctQuestions}
-            writtenQuestions={writtenQuestions}
-          />
-        ),
-        SingleValue: (props) => (
-          <HighlightedSingleValue
-            {...props}
-            // I'm not quite sure why this error is happening, something seems wrong in react-select?
-            // eslint-disable-next-line react/prop-types
-            dataValue={props.data.value}
-            isCategory={false}
-            category={category}
-            correctQuestions={correctQuestions}
-            writtenQuestions={writtenQuestions}
-          />
-        ),
-      }}
-      />
+        />
+      </div>
 
     </div>
   )
