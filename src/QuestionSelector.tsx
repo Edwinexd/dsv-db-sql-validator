@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import Select from "react-select";
 import questions from "./questions.json";
 import { Result } from "./utils";
@@ -174,7 +174,22 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
     const questionObj = {...rawQuestionObj, category: { id: category, display_number: String(category) }, evaluable_result: { columns: rawQuestionObj.result.columns, data: rawQuestionObj.result.values } };
     setQuestion(questionObj);
     onSelect(questionObj);
-  }, [sequence, category, question, onSelect]);
+  }, [sequence, category, question, onSelect, writtenQuestions, correctQuestions]);
+
+  // Chooses a) the first written question, b) the first correct question, or c) the first question in the category
+  const getInitialSequence = useCallback((categoryId: number) => {
+    const categoryObj = questions.find(q => q.category_id === categoryId)!;
+    const written = categoryObj.questions.filter(q => writtenQuestions?.includes(q.id)).map(q => q.display_sequence).sort();
+    const correct = categoryObj.questions.filter(q => correctQuestions?.includes(q.id)).map(q => q.display_sequence).sort();
+    const diff = written.filter(w => !correct.includes(w));
+    if (diff.length > 0) {
+      return diff[0];
+    }
+    if (correct.length > 0) {
+      return correct[0];
+    }
+    return "A";
+  }, [writtenQuestions, correctQuestions]);
 
   const options = questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) }; }).flat();
 
@@ -184,10 +199,11 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
         Question: <Select options={questions.map(q => { return { value: String(q.category_id), label: String(q.display_number) }; }).flat()}
           value={options.find(o => o.value === String(category))}
           onChange={(e) => {
-            if (e) {
-              setSequence("A");
-              setCategory(Number(e.value));
+            if (!e) {
+              return;
             }
+            setCategory(Number(e.value));
+            setSequence(getInitialSequence(Number(e.value)));
           }} 
           className="text-black mr-3.5 ml-2"
           components={{
@@ -219,9 +235,10 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({ onSelect, writtenQu
       </div>
       <div className="flex">
         Variant: <Select options={sequenceOptions} value={sequenceOptions.find(o => o.value === sequence)} onChange={(e) => {
-          if (e) {
-            setSequence(e.value);
+          if (!e) {
+            return;
           }
+          setSequence(e.value);
         }} className="text-black ml-2"
         components={{
           Option: (props) => (
