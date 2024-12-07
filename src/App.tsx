@@ -18,8 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Editor from "react-simple-code-editor";
 import "./App.css";
-import db_scheme_dark from "./db_scheme_dark.png";
-import db_scheme_light from "./db_scheme_light.png";
 import ResultTable from "./ResultTable";
 
 import ExportRenderer from "./ExportRenderer";
@@ -42,6 +40,7 @@ import questions from "./questions.json";
 import ThemeToggle from "./ThemeToggle";
 import useTheme from "./useTheme";
 import { isCorrectResult, Result } from "./utils";
+import DatabaseLayoutDialog from "./DatabaseLayoutDialog";
 
 const DEFAULT_QUERY = "SELECT * FROM student;";
 
@@ -684,7 +683,7 @@ function App() {
         <div className="my-2"></div>
         <ThemeToggle setTheme={setTheme} isDarkMode={isDarkMode}></ThemeToggle>
         <h1 className="text-6xl font-semibold my-3">SQL Validator</h1>
-        <img src={isDarkMode() ? db_scheme_dark : db_scheme_light} className="DB-Layout" alt="Database Layout" />
+        <DatabaseLayoutDialog isDarkMode={isDarkMode} />
         <QuestionSelector writtenQuestions={writtenQuestions} correctQuestions={correctQuestions} onSelect={(selectedQuestion) => {loadQuery(question, selectedQuestion); resetResult(); setQuestion(selectedQuestion);}}></QuestionSelector>
         <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2">{question?.description || "Select a question to get started!"}</p>
         {query === undefined ? 

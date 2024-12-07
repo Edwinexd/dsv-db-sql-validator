@@ -8,13 +8,13 @@ const PrivacyNoticeToggle = () => {
     return null;
   }
 
-  const openModal = () => dialogRef.current?.showModal();
-  const closeModal = () => dialogRef.current?.close();
+  const openDialog = () => dialogRef.current?.showModal();
+  const closeDialog = () => dialogRef.current?.close();
 
   return (
     <div>
       <button 
-        onClick={openModal} 
+        onClick={openDialog} 
         className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer bg-transparent border-0 p-0"
       >
         Privacy Notice
@@ -22,7 +22,7 @@ const PrivacyNoticeToggle = () => {
       <dialog ref={dialogRef} className="rounded-lg max-w-4xl w-full p-6 shadow-lg border dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold">Privacy Notice</h2>
-          <XMarkIcon className="w-6 h-6 cursor-pointer text-red-500 hover:text-red-700" onClick={closeModal} />
+          <XMarkIcon className="w-6 h-6 cursor-pointer text-red-500 hover:text-red-700" onClick={closeDialog} />
         </div>
         <p className="text-left text-lg font-medium mb-4">
           This app does not collect or store personal data. This deployment uses {" "}
@@ -38,7 +38,7 @@ const PrivacyNoticeToggle = () => {
         </p>
         <div className="text-right">
           <button 
-            onClick={closeModal} 
+            onClick={closeDialog} 
             className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer bg-transparent border-0 p-0 font-semibold"
           >
             Close
