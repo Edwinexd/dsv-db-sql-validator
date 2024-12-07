@@ -55,7 +55,7 @@ const DatabaseLayoutDialog = ({ isDarkMode }: { isDarkMode: () => boolean }) => 
           <img
             src={isDarkMode() ? dbLayoutDark : dbLayoutLight}
             alt="Database Layout"
-            className="w-full"
+            className="w-full h-full"
           />
         </div>
       </dialog>
