@@ -41,6 +41,7 @@ const DatabaseLayoutDialog = ({ isDarkMode }: { isDarkMode: () => boolean }) => 
       <dialog
         ref={dialogRef}
         onClick={closeDialog}
+        onCancel={closeDialog}
         // This is not a good solution (flex) but I spent too much time on this already / Edwin 2024-12-07
         className={`rounded-lg shadow-lg border item-center justify-center dark:border-slate-700 dark:bg-slate-950/90 bg-slate-50/90 ${isDialogOpen ? "flex" : ""}`}
       >
