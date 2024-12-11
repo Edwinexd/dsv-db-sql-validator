@@ -671,8 +671,7 @@ function App() {
       setExportQuestion(undefined);
       setExportQuery(undefined);
       setExportingStatus(0);
-    }
-    );
+    });
   }, [evaluatedQuery, exportQuery, exportRendererRef, getTheme, isDarkMode, exportingStatus, question, resetResult, setTheme, exportQuestion, exportView]);
 
   return (

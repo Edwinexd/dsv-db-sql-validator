@@ -31,7 +31,7 @@ const ExportRenderer = React.forwardRef<HTMLDivElement, ExportRendererProps>(({ 
 
   return (
   // intentionally fixed width since we render a png of it
-    <div style={{ backgroundColor: "#efefef", color: "#313131" }} className="flex flex-col items-center p-16 w-[64rem]" ref={ref}>
+    <div style={{ backgroundColor: "#efefef", color: "#313131" }} className="flex flex-col items-center p-[64px] w-[1024px]" ref={ref}>
       {query && 
                 <>
                   <div className="flex my-3 text-xl font-semibold space-x-4">
@@ -73,10 +73,11 @@ const ExportRenderer = React.forwardRef<HTMLDivElement, ExportRendererProps>(({ 
       {view && 
                 <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... and this is the result of querying it with SELECT * FROM {view.view.name};</p>
       }
-      <div className="max-w-full mb-4">
+      <div className="max-w-full mb-[16px]">
         <ResultTable result={
           query ? query.result : view!.result
-        } forceLight={true} />
+        } forceLight={true} forceFixedSizes={true}
+        />
       </div>
       {query &&
                 <p className="break-words max-w-4xl mb-4 font-semibold text-left text-xl p-2 italic">... which <span className={query.isCorrect ? "text-green-600" : "text-red-500"}>{query.isCorrect ? "matches" : "does not match"}</span> the expected result!</p>
